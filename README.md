@@ -1,2 +1,0 @@
-# databend-sqlalchemy
-Databend SQLAlchemy
