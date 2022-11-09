@@ -9,7 +9,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 def read_version():
     regexp = re.compile(r'^VERSION\W*=\W*\(([^\(\)]*)\)')
-    init_py = os.path.join(here, '__init__.py')
+    init_py = os.path.join(here, 'databend_sqlalchemy', '__init__.py')
     with open(init_py, encoding='utf-8') as f:
         for line in f:
             match = regexp.match(line)
