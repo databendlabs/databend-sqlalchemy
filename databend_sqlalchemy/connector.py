@@ -181,8 +181,8 @@ class Cursor(object):
         self._uuid = uuid.uuid1()
 
         if is_response:
-            response = self._db.execute(sql, with_column_types=True)
-            self._process_response(response)
+            column_types, response = self._db.execute(sql, with_column_types=True)
+            self._process_response(column_types, response)
 
     def executemany(self, operation, seq_of_parameters):
         """Prepare a database operation (query or command) and then execute it against all parameter
@@ -293,17 +293,10 @@ class Cursor(object):
     def poll(self):
         pass
 
-    def _process_response(self, response):
+    def _process_response(self, column_types, response):
         """ Update the internal state with the data from the response """
         assert self._state == self._STATE_RUNNING, "Should be running if processing response"
-        cols = None
-        data = []
-        # [('column name','column type'),(data,data...)] example:
-        # [('Field', 'String'), ('Type', 'String'), ('Null', 'String'), ('Default', 'String'), ('Extra', 'String'), ('x', 'INT', 'NO', '0', ''), ('y', 'VARCHAR', 'NO', '', '')]
-        if not cols and len(response) != 0:
-            cols = response[:len(response[-1])]
-            data = response[len(response[-1]):]
 
-        self._data = data
-        self._columns = cols
+        self._data = response
+        self._columns = column_types
         self._state = self._STATE_SUCCEEDED

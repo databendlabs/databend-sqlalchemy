@@ -6,6 +6,7 @@ def test():
     cursor.execute("select null as db, name as name, database as schema, if(engine = 'VIEW', 'view', 'table') as type from system.tables where database = 'default';")
     # print(cursor.fetchone())
     print(cursor.fetchall())
+    print(cursor.description)
 
     # for i in cursor.next():
     #     print(i)
