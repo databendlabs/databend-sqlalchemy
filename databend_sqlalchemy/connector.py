@@ -132,7 +132,6 @@ class Cursor(object):
     def _reset_state(self):
         """Reset state about the previous query in preparation for running another query"""
         self._uuid = None
-        self._columns = None
         self._rownumber = 0
         # Internal helper state
         self._state = self._STATE_NONE
@@ -164,9 +163,7 @@ class Cursor(object):
         # Sleep until we're done or we got the columns
         if self._columns is None:
             return []
-        return [
-            col for col in self._columns
-        ]
+        return self._columns
 
     def close(self):
         pass
@@ -184,7 +181,7 @@ class Cursor(object):
         self._uuid = uuid.uuid1()
 
         if is_response:
-            response = self._db.execute(sql,with_column_types=True)
+            response = self._db.execute(sql, with_column_types=True)
             self._process_response(response)
 
     def executemany(self, operation, seq_of_parameters):
