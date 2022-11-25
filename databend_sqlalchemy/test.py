@@ -1,4 +1,4 @@
-import connector
+from databend_sqlalchemy import connector
 
 
 def test():

@@ -10,7 +10,7 @@ import re
 import uuid
 from databend_py import Client
 from datetime import datetime
-from errors import ServerException, NotSupportedError
+from databend_sqlalchemy.errors import ServerException, NotSupportedError
 
 # PEP 249 module globals
 apilevel = '2.0'
