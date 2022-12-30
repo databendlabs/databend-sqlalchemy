@@ -54,7 +54,7 @@ class ParamEscaper(object):
         elif isinstance(item, datetime):
             return self.escape_string(item.strftime("%Y-%m-%d %H:%M:%S"))
         else:
-            raise Exception("Unsupported object {}".format(item))
+            return self.escape_string(item)
 
 
 _escaper = ParamEscaper()
@@ -170,10 +170,6 @@ class Cursor(object):
 
     def execute(self, operation, parameters=None, is_response=True):
         """Prepare and execute a database operation (query or command). """
-        if parameters is None or not parameters:
-            sql = operation
-        else:
-            sql = operation % _escaper.escape_args(parameters)
 
         self._reset_state()
 
@@ -181,7 +177,7 @@ class Cursor(object):
         self._uuid = uuid.uuid1()
 
         if is_response:
-            column_types, response = self._db.execute(sql, with_column_types=True)
+            column_types, response = self._db.execute(operation, parameters, with_column_types=True)
             self._process_response(column_types, response)
 
     def executemany(self, operation, seq_of_parameters):
