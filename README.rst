@@ -27,6 +27,6 @@ The DSN format is similar to that of regular Postgres::
 
 
 Compatibility
-========
+---------------
 
--  If databend version >= v0.9.0 or later, you need to use databend-sqlalchemy version >= v0.1.0.
+If databend version >= v0.9.0 or later, you need to use databend-sqlalchemy version >= v0.1.0.
