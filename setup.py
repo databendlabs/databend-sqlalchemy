@@ -37,7 +37,7 @@ setup(
     packages=find_packages('.', exclude=['tests*']),
     python_requires='>=3.4, <4',
     install_requires=[
-        'databend_py==0.3.3',
+        'databend_py==0.3.4',
         'mysql.connector',
         'sqlalchemy',
     ],
