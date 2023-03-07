@@ -42,6 +42,11 @@ setup(
         'sqlalchemy',
     ],
 
+    extras_require={
+        'sqlalchemy': ['sqlalchemy>1.3.21,<2.0'],
+        'superset': ['apache_superset>=1.4.1'],
+    },
+
     author='Databend Cloud Team',
     author_email='hantmac@outlook.com',
 
@@ -75,5 +80,9 @@ setup(
     ],
 
     keywords='databend db database cloud analytics SQLAlchemy.',
-    test_suite='pytest'
+    test_suite='pytest',
+
+    entry_points={
+        'sqlalchemy.dialects': ['databend = databend_sqlalchemy.databend_dialect:DatabendDialect'],
+    },
 )

@@ -14,7 +14,7 @@ from superset.errors import SupersetError, SupersetErrorType, ErrorLevel
 from superset.utils.network import is_hostname_valid, is_port_open
 from superset.models.core import Database
 
-from databend_sqlalchemy.base import ischema_names, _type_map
+from databend_sqlalchemy.databend_dialect import ischema_names
 
 logger = logging.getLogger(__name__)
 
