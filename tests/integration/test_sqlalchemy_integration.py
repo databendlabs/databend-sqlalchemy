@@ -12,11 +12,10 @@ class TestDatabendDialect:
             self, username: str, password: str, database_name: str, host_port_name: str
     ):
         engine = create_engine(
-            f"databend://{username}:{password}@{host_port_name}/{database_name}"
+            f"databend://{username}:{password}@{host_port_name}/{database_name}?secure=false"
         )
         connection = engine.connect()
         result = connection.execute(text("SELECT 1"))
-        print(result)
         assert len(result.fetchall()) == 1
         engine.dispose()
 
@@ -30,10 +29,27 @@ class TestDatabendDialect:
         assert result.fetchall() == [(1, "some_text")]
         result = connection.execute(text(f"SELECT * FROM {fact_table_name}"))
         assert len(result.fetchall()) == 1
-        # Update not supported
-        with pytest.raises(OperationalError):
-            connection.execute(
-                text(
-                    f"UPDATE {fact_table_name} SET dummy='some_other_text' WHERE idx=1"
-                )
-            )
+
+    def test_databend_types(self, connection: Connection):
+        result = connection.execute(text("SELECT to_date('1896-01-01')"))
+        print(str(date(1896, 1, 1)))
+        assert result.fetchall() == [('1896-01-01',)]
+
+    def test_has_table(
+            self, engine: Engine, connection: Connection, fact_table_name: str
+    ):
+        results = engine.dialect.has_table(connection, fact_table_name)
+        assert results == 1
+
+    def test_get_columns(
+            self, engine: Engine, connection: Connection, fact_table_name: str
+    ):
+        results = engine.dialect.get_columns(connection, fact_table_name)
+        assert len(results) > 0
+        row = results[0]
+        assert isinstance(row, dict)
+        row_keys = list(row.keys())
+        assert row_keys[0] == "name"
+        assert row_keys[1] == "type"
+        assert row_keys[2] == "nullable"
+        assert row_keys[3] == "default"

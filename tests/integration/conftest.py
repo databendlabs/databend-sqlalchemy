@@ -44,7 +44,7 @@ def engine(
         username: str, password: str, host_port_name: str, database_name: str
 ) -> Engine:
     return create_engine(
-        f"databend://{username}:{password}@{host_port_name}/{database_name}"
+        f"databend://{username}:{password}@{host_port_name}/{database_name}?secure=false"
     )
 
 
@@ -74,7 +74,7 @@ def setup_test_tables(
     connection.execute(
         text(
             f"""
-        CREATE FACT TABLE IF NOT EXISTS {fact_table_name}
+        CREATE TABLE IF NOT EXISTS {fact_table_name}
         (
             idx INT,
             dummy VARCHAR
@@ -85,7 +85,7 @@ def setup_test_tables(
     connection.execute(
         text(
             f"""
-        CREATE DIMENSION TABLE IF NOT EXISTS {dimension_table_name}
+        CREATE TABLE IF NOT EXISTS {dimension_table_name}
         (
             idx INT,
             dummy VARCHAR
