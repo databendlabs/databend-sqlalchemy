@@ -4,17 +4,21 @@
 #       licensed under the same Apache 2.0 License
 
 import re
-
+import sqlalchemy.types
+import sqlalchemy.util
 import sqlalchemy.types as sqltypes
+from types import ModuleType
+from typing import Any, Dict, List, Optional, Tuple, Union
 from sqlalchemy import exc as sa_exc
 from sqlalchemy import util as sa_util
 from sqlalchemy.engine import default, reflection
-from sqlalchemy.sql import compiler, expression
+from sqlalchemy.sql import compiler, expression, text
 from sqlalchemy.sql.elements import quoted_name
 from sqlalchemy.dialects.postgresql.base import PGCompiler, PGIdentifierPreparer
 from sqlalchemy.types import (
     CHAR, DATE, DATETIME, INTEGER, SMALLINT, BIGINT, DECIMAL, TIME,
-    TIMESTAMP, VARCHAR, BINARY, BOOLEAN, FLOAT, REAL)
+    TIMESTAMP, VARCHAR, BINARY, BOOLEAN, FLOAT, REAL, JSON)
+from sqlalchemy.engine import ExecutionContext, default
 
 # Column spec
 colspecs = {}
@@ -34,26 +38,43 @@ class MAP(sqltypes.TypeEngine):
         super(MAP, self).__init__()
 
 
+_type_map = {
+    "ARRAY": sqlalchemy.types.ARRAY,
+    "BOOLEAN": sqlalchemy.types.Boolean,
+    "DATETIME": sqlalchemy.types.DATETIME,
+    "DATE": sqlalchemy.types.DATE,
+    "DOUBLE": sqlalchemy.types.Float,
+    "FLOAT": sqlalchemy.types.Float,
+    "INT64": sqlalchemy.types.Integer,
+    "INTEGER": sqlalchemy.types.Integer,
+    "NUMERIC": sqlalchemy.types.Numeric,
+    "STRING": sqlalchemy.types.String,
+    "TIMESTAMP": sqlalchemy.types.TIMESTAMP,
+}
+
 # Type converters
 ischema_names = {
-    'Int64': INTEGER,
-    'Int32': INTEGER,
-    'Int16': INTEGER,
-    'Int8': INTEGER,
-    'UInt64': INTEGER,
-    'UInt32': INTEGER,
-    'UInt16': INTEGER,
-    'UInt8': INTEGER,
-    'Date': DATE,
-    'Timestamp': DATETIME,
-    'Float64': FLOAT,
-    'Float32': FLOAT,
-    'String': VARCHAR,
-    'Enum': VARCHAR,
-    'Enum8': VARCHAR,
-    'Enum16': VARCHAR,
-    'Array': ARRAY,
-    'Map': MAP,
+    'int': INTEGER,
+    'int64': INTEGER,
+    'int32': INTEGER,
+    'int16': INTEGER,
+    'int8': INTEGER,
+    'uint64': INTEGER,
+    'uint32': INTEGER,
+    'uint16': INTEGER,
+    'uint8': INTEGER,
+    'decimal': DECIMAL,
+    'date': DATE,
+    'timestamp': DATETIME,
+    'float': FLOAT,
+    'double': FLOAT,
+    'float64': FLOAT,
+    'float32': FLOAT,
+    'string': VARCHAR,
+    'array': ARRAY,
+    'map': MAP,
+    'json': JSON,
+    'varchar': VARCHAR,
 }
 
 
@@ -167,6 +188,7 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
 
 class DatabendDialect(default.DefaultDialect):
     name = 'databend'
+    driver = "databend"
     supports_cast = True
     supports_unicode_statements = True
     supports_unicode_binds = True
@@ -192,19 +214,33 @@ class DatabendDialect(default.DefaultDialect):
     # Required for PG-based compiler
     _backslash_escapes = True
 
-    # @classmethod
-    # def dbapi(cls):
-    #     try:
-    #         import databend_sqlalchemy.connector as connector
-    #     except:
-    #         import connector
-    #     return connector
+    def __init__(
+            self, context: Optional[ExecutionContext] = None, *args: Any, **kwargs: Any
+    ):
+        super(DatabendDialect, self).__init__(*args, **kwargs)
+        self.context: Union[ExecutionContext, Dict] = context or {}
+
+    @classmethod
+    def dbapi(cls):
+        try:
+            import databend_sqlalchemy.connector as connector
+        except:
+            import connector
+        return connector
+
+    def initialize(self, connection):
+        pass
+
+    def connect(self, *cargs, **cparams):
+        # inherits the docstring from interfaces.Dialect.connect
+        return self.dbapi.connect(*cargs, **cparams)
 
     def create_connect_args(self, url):
         kwargs = {
-            'db_url': 'http://%s:%d/' % (url.host, url.port or 8123),
+            'db_url': 'databend://%s:%d/' % (url.host, url.port or 8000),
             'username': url.username,
             'password': url.password,
+            'database': url.database,
         }
         kwargs.update(url.query)
         return ([url.database or 'default'], kwargs)
@@ -225,7 +261,7 @@ class DatabendDialect(default.DefaultDialect):
         # This needs the table name to be unescaped (no backticks).
         return connection.execute('DESCRIBE TABLE {}'.format(full_table)).fetchall()
 
-    def has_table(self, connection, table_name, schema=None):
+    def has_table(self, connection, table_name, schema=None, **kw):
         full_table = table_name
         if schema:
             full_table = schema + '.' + table_name
@@ -236,36 +272,32 @@ class DatabendDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_columns(self, connection, table_name, schema=None, **kw):
-        rows = self._get_table_columns(connection, table_name, schema)
-        result = []
-        for r in rows:
-            col_name = r.name
-            col_type = ""
-            if r.type.startswith("AggregateFunction"):
-                # Extract type information from a column
-                # using AggregateFunction
-                # the type from databend will be
-                # AggregateFunction(sum, Int64) for an Int64 type
-                # remove first 24 chars and remove the last one to get Int64
-                col_type = r.type[23:-1]
-            elif r.type.startswith("Nullable"):
-                col_type = re.search(r'^\w+', r.type[9:-1]).group(0)
-            else:
-                # Take out the more detailed type information
-                # e.g. 'map<int,int>' -> 'map'
-                #      'decimal(10,1)' -> decimal                
-                col_type = re.search(r'^\w+', r.type).group(0)
-            try:
-                coltype = ischema_names[col_type]
-            except KeyError:
-                coltype = sqltypes.NullType
-            result.append({
-                'name': col_name,
-                'type': coltype,
-                'nullable': True,
-                'default': None,
-            })
-        return result
+        query = """
+            select column_name,
+                   data_type,
+                   is_nullable
+              from information_schema.columns
+             where table_name = '{table_name}'
+        """.format(
+            table_name=table_name
+        )
+
+        if schema:
+            query = "{query} and table_schema = '{schema}'".format(
+                query=query, schema=schema
+            )
+
+        result = connection.execute(text(query))
+
+        return [
+            {
+                "name": row[0],
+                "type": ischema_names[row[1].lower()],
+                "nullable": get_is_nullable(row[2]),
+                "default": None,
+            }
+            for row in result
+        ]
 
     @reflection.cache
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
@@ -299,12 +331,16 @@ class DatabendDialect(default.DefaultDialect):
         col_names = [c.strip() for c in cols.group(1).split(',')]
         return [{'name': 'partition', 'column_names': col_names, 'unique': False}]
 
-    @reflection.cache
+    # @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):
-        query = 'SHOW TABLES'
+        query = "select table_name from information_schema.tables"
         if schema:
-            query += ' FROM ' + schema
-        return [row.name for row in connection.execute(query)]
+            query = "{query} where table_schema = '{schema}'".format(
+                query=query, schema=schema
+            )
+
+        result = connection.execute(text(query))
+        return [row.table_name for row in result]
 
     def do_rollback(self, dbapi_connection):
         # No transactions
@@ -320,3 +356,7 @@ class DatabendDialect(default.DefaultDialect):
 
 
 dialect = DatabendDialect
+
+
+def get_is_nullable(column_is_nullable: str) -> bool:
+    return column_is_nullable == "YES"
