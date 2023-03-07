@@ -3,7 +3,6 @@ from decimal import Decimal
 
 import pytest
 from sqlalchemy import create_engine, text
-from sqlalchemy.dialects import registry
 from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.exc import OperationalError
 
@@ -12,13 +11,12 @@ class TestDatabendDialect:
     def test_set_params(
             self, username: str, password: str, database_name: str, host_port_name: str
     ):
-        print("sss")
-        registry.register("databend", __name__, "databend_sqlalchemy.databend_dialect.DatabendDialect")
         engine = create_engine(
             f"databend://{username}:{password}@{host_port_name}/{database_name}"
         )
         connection = engine.connect()
         result = connection.execute(text("SELECT 1"))
+        print(result)
         assert len(result.fetchall()) == 1
         engine.dispose()
 

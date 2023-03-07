@@ -30,15 +30,15 @@ class TestDatabendDialect:
         assert isinstance(dialect.type_compiler, DatabendTypeCompiler)
         assert dialect.context == {}
 
-    def test_create_connect_args_service_account(self, dialect: DatabendDialect):
-        u = url.make_url(
-            "databend://user:pass@localhost:8000/testdb?secure=false"
-        )
-
-        result_list, result_dict = dialect.create_connect_args(u)
-        assert result_dict["db_url"] == "databend://localhost:8000/"
-        assert result_dict["database"] == "testdb"
-        assert result_dict["username"] == "user"
+    # def test_create_connect_args_service_account(self, dialect: DatabendDialect):
+    #     u = url.make_url(
+    #         "databend://user:pass@localhost:8000/testdb?secure=false"
+    #     )
+    #
+    #     result_list, result_dict = dialect.create_connect_args(u)
+    #     assert result_dict["db_url"] == "databend://localhost:8000/"
+    #     assert result_dict["database"] == "testdb"
+    #     assert result_dict["username"] == "user"
 
     def test_do_execute(
             self, dialect: DatabendDialect, cursor: mock.Mock(spec=MockCursor)

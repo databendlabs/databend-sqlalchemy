@@ -12,7 +12,7 @@ def validate_entrypoints():
     try:
         dist = pkg_resources.get_distribution('databend-sqlalchemy')
     except pkg_resources.DistributionNotFound:
-        print ('\nDatabend Sqlalchemy package not found in this Python installation')
+        print('\nDatabend Sqlalchemy package not found in this Python installation')
         return -1
     entry_map = dist.get_entry_map()
     print()
@@ -24,14 +24,14 @@ def validate_entrypoints():
             try:
                 expected_eps.remove(name)
             except KeyError:
-                print (f'\nUnexpected entry point {name} found')
+                print(f'\nUnexpected entry point {name} found')
                 return -1
     if expected_eps:
         print()
         for name in expected_eps:
-            print (f'Did not find expected ep {name}')
+            print(f'Did not find expected ep {name}')
         return -1
-    print ('\nEntrypoints correctly installed')
+    print('\nEntrypoints correctly installed')
     return 0
 
 

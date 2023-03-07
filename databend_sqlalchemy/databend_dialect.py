@@ -235,16 +235,6 @@ class DatabendDialect(default.DefaultDialect):
         # inherits the docstring from interfaces.Dialect.connect
         return self.dbapi.connect(*cargs, **cparams)
 
-    def create_connect_args(self, url):
-        kwargs = {
-            'db_url': 'databend://%s:%d/' % (url.host, url.port or 8000),
-            'username': url.username,
-            'password': url.password,
-            'database': url.database,
-        }
-        kwargs.update(url.query)
-        return ([url.database or 'default'], kwargs)
-
     def _get_default_schema_name(self, connection):
         return connection.scalar("select currentDatabase()")
 

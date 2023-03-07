@@ -35,6 +35,7 @@ class DatabendEngineSpec(BaseEngineSpec, BasicParametersMixin):
     """
 
     engine = "databend"
+    engine_name = 'Databend Sqlalchemy'
 
     time_secondary_columns = True
     time_groupby_inline = True

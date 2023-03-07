@@ -37,8 +37,7 @@ setup(
     packages=find_packages('.', exclude=['tests*']),
     python_requires='>=3.4, <4',
     install_requires=[
-        'databend_py==0.3.5',
-        'mysql.connector',
+        'databend_py',
         'sqlalchemy',
     ],
 
@@ -84,5 +83,6 @@ setup(
 
     entry_points={
         'sqlalchemy.dialects': ['databend = databend_sqlalchemy.databend_dialect:DatabendDialect'],
+        'superset.db_engine_specs': ['databend = databend_sqlalchemy.cc_superset.engine:DatabendEngineSpec']
     },
 )

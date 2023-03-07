@@ -3,7 +3,5 @@
 
 from databend_sqlalchemy.entry_points import validate_entrypoints
 
-driver_name = 'clickhousedb'
-
-VERSION = (0, 1, 8)
+VERSION = (0, 2, 1)
 __version__ = '.'.join(str(x) for x in VERSION)
