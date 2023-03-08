@@ -39,6 +39,7 @@ setup(
     install_requires=[
         'databend_py',
         'sqlalchemy',
+        'mysql.connector',
     ],
 
     extras_require={
