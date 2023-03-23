@@ -56,7 +56,7 @@ class DatabendEngineSpec(BaseEngineSpec, BasicParametersMixin):
         'P1Y': 'to_start_of_year(TO_DATETIME({col}))',
     }
 
-    sqlalchemy_uri_placeholder = 'https://user:password@host[:port][/dbname][?secure=value&=value...]'
+    sqlalchemy_uri_placeholder = 'databend://user:password@host[:port][/dbname][?secure=value&=value...]'
     parameters_schema = DatabendParametersSchema()
     encryption_parameters = {'secure': True}
 
