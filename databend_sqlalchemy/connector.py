@@ -102,7 +102,7 @@ class Connection(Client):
         self.client = Client.from_url(db_url)
 
     def close(self):
-        pass
+        self.client.disconnect()
 
     def commit(self):
         pass
@@ -166,7 +166,7 @@ class Cursor(object):
         return self._columns
 
     def close(self):
-        pass
+        self._reset_state()
 
     def execute(self, operation, parameters=None, is_response=True):
         """Prepare and execute a database operation (query or command). """
