@@ -8,7 +8,7 @@ Installation
 
 The package is installable through PIP::
 
-   pip install databend-sqlalchemy
+    pip install databend-sqlalchemy
 
 Usage
 -----

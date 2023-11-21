@@ -6,8 +6,8 @@ class Error(Exception):
         super(Error, self).__init__(message)
 
     def __str__(self):
-        message = ' ' + self.message if self.message is not None else ''
-        return 'Code: {}.{}'.format(self.code, message)
+        message = " " + self.message if self.message is not None else ""
+        return "Code: {}.{}".format(self.code, message)
 
 
 class ServerException(Error):
@@ -17,7 +17,7 @@ class ServerException(Error):
         super(ServerException, self).__init__(message)
 
     def __str__(self):
-        return 'Code: {}\n{}'.format(self.code, self.message)
+        return "Code: {}\n{}".format(self.code, self.message)
 
 
 class NotSupportedError(Error):
@@ -26,4 +26,4 @@ class NotSupportedError(Error):
         super(NotSupportedError, self).__init__(message)
 
     def __str__(self):
-        return '{}'.format(self.message)
+        return "{}".format(self.message)

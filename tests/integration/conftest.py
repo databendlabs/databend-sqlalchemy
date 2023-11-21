@@ -41,7 +41,7 @@ def password() -> str:
 
 @fixture(scope="session")
 def engine(
-        username: str, password: str, host_port_name: str, database_name: str
+    username: str, password: str, host_port_name: str, database_name: str
 ) -> Engine:
     return create_engine(
         f"databend://{username}:{password}@{host_port_name}/{database_name}?secure=false"
@@ -66,10 +66,10 @@ def dimension_table_name() -> str:
 
 @fixture(scope="class", autouse=True)
 def setup_test_tables(
-        connection: Connection,
-        engine: Engine,
-        fact_table_name: str,
-        dimension_table_name: str,
+    connection: Connection,
+    engine: Engine,
+    fact_table_name: str,
+    dimension_table_name: str,
 ):
     connection.execute(
         text(
