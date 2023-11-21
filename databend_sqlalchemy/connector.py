@@ -8,20 +8,22 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 import re
 import uuid
-from databend_py import Client
 from datetime import datetime
 from databend_sqlalchemy.errors import ServerException, NotSupportedError
 
+from databend_py import Client
+
 # PEP 249 module globals
-apilevel = '2.0'
+apilevel = "2.0"
 threadsafety = 2  # Threads may share the module and connections.
-paramstyle = 'pyformat'  # Python extended format codes, e.g. ...WHERE name=%(name)s
+paramstyle = "pyformat"  # Python extended format codes, e.g. ...WHERE name=%(name)s
 
 
 class Error(Exception):
     """Exception that is the base class of all other error exceptions.
     You can use this to catch all errors with one single except statement.
     """
+
     pass
 
 
@@ -43,12 +45,14 @@ class ParamEscaper(object):
         # as byte strings. The old version always encodes Unicode as byte strings, which breaks
         # string formatting here.
         if isinstance(item, bytes):
-            item = item.decode('utf-8')
-        return "'{}'".format(item.replace("\\", "\\\\").replace("'", "\\'").replace("$", "$$"))
+            item = item.decode("utf-8")
+        return "'{}'".format(
+            item.replace("\\", "\\\\").replace("'", "\\'").replace("$", "$$")
+        )
 
     def escape_item(self, item):
         if item is None:
-            return 'NULL'
+            return "NULL"
         elif isinstance(item, (int, float)):
             return self.escape_number(item)
         elif isinstance(item, datetime):
@@ -64,28 +68,29 @@ _escaper = ParamEscaper()
 @classmethod
 def create_ad_hoc_field(cls, db_type):
     # Enums
-    if db_type.startswith('Enum'):
-        db_type = 'String'  # enum.Eum is not comparable
+    if db_type.startswith("Enum"):
+        db_type = "String"  # enum.Eum is not comparable
     # Arrays
-    if db_type.startswith('Array'):
-        return 'Array'
+    if db_type.startswith("Array"):
+        return "Array"
     # FixedString
-    if db_type.startswith('FixedString'):
-        db_type = 'String'
+    if db_type.startswith("FixedString"):
+        db_type = "String"
 
-    if db_type == 'LowCardinality(String)':
-        db_type = 'String'
+    if db_type == "LowCardinality(String)":
+        db_type = "String"
 
-    if db_type.startswith('DateTime'):
-        db_type = 'DateTime'
+    if db_type.startswith("DateTime"):
+        db_type = "DateTime"
 
-    if db_type.startswith('Nullable'):
-        return 'Nullable'
+    if db_type.startswith("Nullable"):
+        return "Nullable"
 
 
 #
 # Connector interface
 #
+
 
 def connect(*args, **kwargs):
     return Connection(*args, **kwargs)
@@ -93,10 +98,10 @@ def connect(*args, **kwargs):
 
 class Connection(Client):
     """
-        These objects are small stateless factories for cursors, which do all the real work.
+    These objects are small stateless factories for cursors, which do all the real work.
     """
 
-    def __init__(self, db_url='http://root:@localhost:8081'):
+    def __init__(self, db_url="http://root:@localhost:8081"):
         super(Connection, self).__init__(db_url)
         self.db_url = db_url
         self.client = Client.from_url(db_url)
@@ -121,6 +126,7 @@ class Cursor(object):
     Cursors are not isolated, i.e., any changes done to the database by a cursor are immediately
     visible by other cursors or connections.
     """
+
     _STATE_NONE = None
     _STATE_RUNNING = "Running"
     _STATE_SUCCEEDED = "Succeeded"
@@ -169,7 +175,7 @@ class Cursor(object):
         self._reset_state()
 
     def execute(self, operation, parameters=None, is_response=True):
-        """Prepare and execute a database operation (query or command). """
+        """Prepare and execute a database operation (query or command)."""
 
         self._reset_state()
 
@@ -177,7 +183,9 @@ class Cursor(object):
         self._uuid = uuid.uuid1()
 
         if is_response:
-            column_types, response = self._db.execute(operation, parameters, with_column_types=True)
+            column_types, response = self._db.execute(
+                operation, parameters, with_column_types=True
+            )
             self._process_response(column_types, response)
 
     def executemany(self, operation, seq_of_parameters):
@@ -190,10 +198,11 @@ class Cursor(object):
         """
         values_list = []
         RE_INSERT_VALUES = re.compile(
-            r"\s*((?:INSERT|REPLACE)\s.+\sVALUES?\s*)" +
-            r"(\(\s*(?:%s|%\(.+\)s)\s*(?:,\s*(?:%s|%\(.+\)s)\s*)*\))" +
-            r"(\s*(?:ON DUPLICATE.*)?);?\s*\Z",
-            re.IGNORECASE | re.DOTALL)
+            r"\s*((?:INSERT|REPLACE)\s.+\sVALUES?\s*)"
+            + r"(\(\s*(?:%s|%\(.+\)s)\s*(?:,\s*(?:%s|%\(.+\)s)\s*)*\))"
+            + r"(\s*(?:ON DUPLICATE.*)?);?\s*\Z",
+            re.IGNORECASE | re.DOTALL,
+        )
 
         m = RE_INSERT_VALUES.match(operation)
         if m:
@@ -202,14 +211,14 @@ class Cursor(object):
 
             for parameters in seq_of_parameters[:-1]:
                 values_list.append(q_values % _escaper.escape_args(parameters))
-            query = '{} {};'.format(q_prefix, ','.join(values_list))
+            query = "{} {};".format(q_prefix, ",".join(values_list))
             return self._db.raw(query)
         for parameters in seq_of_parameters[:-1]:
             self.execute(operation, parameters, is_response=False)
 
     def fetchone(self):
         """Fetch the next row of a query result set, returning a single sequence, or ``None`` when
-        no more data is available. """
+        no more data is available."""
         if self._state == self._STATE_NONE:
             raise Exception("No query yet")
         if not self._data:
@@ -290,8 +299,10 @@ class Cursor(object):
         pass
 
     def _process_response(self, column_types, response):
-        """ Update the internal state with the data from the response """
-        assert self._state == self._STATE_RUNNING, "Should be running if processing response"
+        """Update the internal state with the data from the response"""
+        assert (
+            self._state == self._STATE_RUNNING
+        ), "Should be running if processing response"
 
         self._data = response
         self._columns = column_types

@@ -1,0 +1,49 @@
+[project]
+name = "databend-sqlalchemy"
+description = "Databend dialect for SQLAlchemy"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.7, <4"
+keywords = ["databend", "db", "database", "cloud", "analytics", "SQLAlchemy"]
+classifiers = [
+    "Environment :: Console",
+
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+
+    "Operating System :: OS Independent",
+
+    "Programming Language :: SQL",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: Implementation :: PyPy",
+
+    "Topic :: Database",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = ["databend-driver", "sqlalchemy>1.3.21,<2.0"]
+dynamic = ["version", "readme", "entry-points", "scripts"]
+
+
+[project.optional-dependencies]
+test = ["pytest"]
+lint = ["black", "flake8"]
+superset = ["apache_superset>=1.4.1"]
+
+[project.urls]
+Repository = "https://github.com/datafuselabs/databend-sqlalchemy"
+Homepage = "https://databend.rs"
+
+[tool.setuptools]
+packages = ["databend_sqlalchemy", "cc_superset"]
+
+[tool.setuptools.dynamic]
+version = { attr = "databend_sqlalchemy.VERSION" }
+readme = { file = ["README.rst"] }
+entry-points = { file = "entrypoints.cfg" }

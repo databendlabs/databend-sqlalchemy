@@ -41,7 +41,7 @@ class TestDatabendDialect:
     #     assert result_dict["username"] == "user"
 
     def test_do_execute(
-            self, dialect: DatabendDialect, cursor: mock.Mock(spec=MockCursor)
+        self, dialect: DatabendDialect, cursor: mock.Mock(spec=MockCursor)
     ):
         dialect.do_execute(cursor, "SELECT *", None)
         cursor.execute.assert_called_once_with("SELECT *", None)
@@ -49,7 +49,7 @@ class TestDatabendDialect:
         dialect.do_execute(cursor, "SELECT *", (1, 22), None)
 
     def test_table_names(
-            self, dialect: DatabendDialect, connection: mock.Mock(spec=MockDBApi)
+        self, dialect: DatabendDialect, connection: mock.Mock(spec=MockDBApi)
     ):
         def row_with_table_name(name):
             return mock.Mock(table_name=name)
@@ -77,13 +77,13 @@ class TestDatabendDialect:
         )
 
     def test_view_names(
-            self, dialect: DatabendDialect, connection: mock.Mock(spec=MockDBApi)
+        self, dialect: DatabendDialect, connection: mock.Mock(spec=MockDBApi)
     ):
         connection.execute.return_value = []
         assert dialect.get_view_names(connection) == []
 
     def test_columns(
-            self, dialect: DatabendDialect, connection: mock.Mock(spec=MockDBApi)
+        self, dialect: DatabendDialect, connection: mock.Mock(spec=MockDBApi)
     ):
         def multi_column_row(columns):
             def getitem(self, idx):
@@ -109,11 +109,11 @@ class TestDatabendDialect:
         expected_query_schema = expected_query + " and table_schema = 'schema'"
 
         for call, expected_query in (
-                (lambda: dialect.get_columns(connection, "table"), expected_query),
-                (
-                        lambda: dialect.get_columns(connection, "table", "schema"),
-                        expected_query_schema,
-                ),
+            (lambda: dialect.get_columns(connection, "table"), expected_query),
+            (
+                lambda: dialect.get_columns(connection, "table", "schema"),
+                expected_query_schema,
+            ),
         ):
             assert call() == [
                 {
@@ -144,11 +144,25 @@ def test_get_is_nullable():
 def test_types():
     assert databend_sqlalchemy.databend_dialect.CHAR is sqlalchemy.sql.sqltypes.CHAR
     assert databend_sqlalchemy.databend_dialect.DATE is sqlalchemy.sql.sqltypes.DATE
-    assert databend_sqlalchemy.databend_dialect.DATETIME is sqlalchemy.sql.sqltypes.DATETIME
-    assert databend_sqlalchemy.databend_dialect.INTEGER is sqlalchemy.sql.sqltypes.INTEGER
+    assert (
+        databend_sqlalchemy.databend_dialect.DATETIME
+        is sqlalchemy.sql.sqltypes.DATETIME
+    )
+    assert (
+        databend_sqlalchemy.databend_dialect.INTEGER is sqlalchemy.sql.sqltypes.INTEGER
+    )
     assert databend_sqlalchemy.databend_dialect.BIGINT is sqlalchemy.sql.sqltypes.BIGINT
-    assert databend_sqlalchemy.databend_dialect.TIMESTAMP is sqlalchemy.sql.sqltypes.TIMESTAMP
-    assert databend_sqlalchemy.databend_dialect.VARCHAR is sqlalchemy.sql.sqltypes.VARCHAR
-    assert databend_sqlalchemy.databend_dialect.BOOLEAN is sqlalchemy.sql.sqltypes.BOOLEAN
+    assert (
+        databend_sqlalchemy.databend_dialect.TIMESTAMP
+        is sqlalchemy.sql.sqltypes.TIMESTAMP
+    )
+    assert (
+        databend_sqlalchemy.databend_dialect.VARCHAR is sqlalchemy.sql.sqltypes.VARCHAR
+    )
+    assert (
+        databend_sqlalchemy.databend_dialect.BOOLEAN is sqlalchemy.sql.sqltypes.BOOLEAN
+    )
     assert databend_sqlalchemy.databend_dialect.FLOAT is sqlalchemy.sql.sqltypes.FLOAT
-    assert issubclass(databend_sqlalchemy.databend_dialect.ARRAY, sqlalchemy.types.TypeEngine)
+    assert issubclass(
+        databend_sqlalchemy.databend_dialect.ARRAY, sqlalchemy.types.TypeEngine
+    )

@@ -16,8 +16,22 @@ from sqlalchemy.sql import compiler, expression, text
 from sqlalchemy.sql.elements import quoted_name
 from sqlalchemy.dialects.postgresql.base import PGCompiler, PGIdentifierPreparer
 from sqlalchemy.types import (
-    CHAR, DATE, DATETIME, INTEGER, SMALLINT, BIGINT, DECIMAL, TIME,
-    TIMESTAMP, VARCHAR, BINARY, BOOLEAN, FLOAT, REAL, JSON)
+    CHAR,
+    DATE,
+    DATETIME,
+    INTEGER,
+    SMALLINT,
+    BIGINT,
+    DECIMAL,
+    TIME,
+    TIMESTAMP,
+    VARCHAR,
+    BINARY,
+    BOOLEAN,
+    FLOAT,
+    REAL,
+    JSON,
+)
 from sqlalchemy.engine import ExecutionContext, default
 
 # Column spec
@@ -26,11 +40,11 @@ colspecs = {}
 
 # Type decorators
 class ARRAY(sqltypes.TypeEngine):
-    __visit_name__ = 'ARRAY'
+    __visit_name__ = "ARRAY"
 
 
 class MAP(sqltypes.TypeEngine):
-    __visit_name__ = 'MAP'
+    __visit_name__ = "MAP"
 
     def __init__(self, key_type, value_type):
         self.key_type = key_type
@@ -54,33 +68,33 @@ _type_map = {
 
 # Type converters
 ischema_names = {
-    'int': INTEGER,
-    'int64': INTEGER,
-    'int32': INTEGER,
-    'int16': INTEGER,
-    'int8': INTEGER,
-    'uint64': INTEGER,
-    'uint32': INTEGER,
-    'uint16': INTEGER,
-    'uint8': INTEGER,
-    'decimal': DECIMAL,
-    'date': DATE,
-    'timestamp': DATETIME,
-    'float': FLOAT,
-    'double': FLOAT,
-    'float64': FLOAT,
-    'float32': FLOAT,
-    'string': VARCHAR,
-    'array': ARRAY,
-    'map': MAP,
-    'json': JSON,
-    'varchar': VARCHAR,
+    "int": INTEGER,
+    "int64": INTEGER,
+    "int32": INTEGER,
+    "int16": INTEGER,
+    "int8": INTEGER,
+    "uint64": INTEGER,
+    "uint32": INTEGER,
+    "uint16": INTEGER,
+    "uint8": INTEGER,
+    "decimal": DECIMAL,
+    "date": DATE,
+    "timestamp": DATETIME,
+    "float": FLOAT,
+    "double": FLOAT,
+    "float64": FLOAT,
+    "float32": FLOAT,
+    "string": VARCHAR,
+    "array": ARRAY,
+    "map": MAP,
+    "json": JSON,
+    "varchar": VARCHAR,
 }
 
 
 class DatabendIdentifierPreparer(PGIdentifierPreparer):
     def quote_identifier(self, value):
-        """ Never quote identifiers. """
+        """Never quote identifiers."""
         return self._escape_identifier(value)
 
     def quote(self, ident, force=None):
@@ -91,22 +105,22 @@ class DatabendIdentifierPreparer(PGIdentifierPreparer):
 
 class DatabendCompiler(PGCompiler):
     def visit_count_func(self, fn, **kw):
-        return 'count{0}'.format(self.process(fn.clause_expr, **kw))
+        return "count{0}".format(self.process(fn.clause_expr, **kw))
 
     def visit_random_func(self, fn, **kw):
-        return 'rand()'
+        return "rand()"
 
     def visit_now_func(self, fn, **kw):
-        return 'now()'
+        return "now()"
 
     def visit_current_date_func(self, fn, **kw):
-        return 'today()'
+        return "today()"
 
     def visit_true(self, element, **kw):
-        return '1'
+        return "1"
 
     def visit_false(self, element, **kw):
-        return '0'
+        return "0"
 
     def visit_cast(self, cast, **kwargs):
         if self.dialect.supports_cast:
@@ -124,52 +138,56 @@ class DatabendCompiler(PGCompiler):
             return "substring(%s, %s)" % (s, start)
 
     def visit_concat_op_binary(self, binary, operator, **kw):
-        return "concat(%s, %s)" % (self.process(binary.left), self.process(binary.right))
+        return "concat(%s, %s)" % (
+            self.process(binary.left),
+            self.process(binary.right),
+        )
 
     def visit_in_op_binary(self, binary, operator, **kw):
-        kw['literal_binds'] = True
-        return '%s IN %s' % (
+        kw["literal_binds"] = True
+        return "%s IN %s" % (
             self.process(binary.left, **kw),
-            self.process(binary.right, **kw)
+            self.process(binary.right, **kw),
         )
 
     def visit_notin_op_binary(self, binary, operator, **kw):
-        kw['literal_binds'] = True
-        return '%s NOT IN %s' % (
+        kw["literal_binds"] = True
+        return "%s NOT IN %s" % (
             self.process(binary.left, **kw),
-            self.process(binary.right, **kw)
+            self.process(binary.right, **kw),
         )
 
-    def visit_column(self, column, add_to_result_map=None,
-                     include_table=True, **kwargs):
+    def visit_column(
+        self, column, add_to_result_map=None, include_table=True, **kwargs
+    ):
         # Columns prefixed with table name are not supported
-        return super(DatabendCompiler, self).visit_column(column,
-                                                          add_to_result_map=add_to_result_map, include_table=False,
-                                                          **kwargs)
+        return super(DatabendCompiler, self).visit_column(
+            column, add_to_result_map=add_to_result_map, include_table=False, **kwargs
+        )
 
     def render_literal_value(self, value, type_):
         value = super(DatabendCompiler, self).render_literal_value(value, type_)
         if isinstance(type_, sqltypes.DateTime):
-            value = 'toDateTime(%s)' % value
+            value = "toDateTime(%s)" % value
         if isinstance(type_, sqltypes.Date):
-            value = 'toDate(%s)' % value
+            value = "toDate(%s)" % value
         return value
 
     def limit_clause(self, select, **kw):
-        text = ''
+        text = ""
         if select._limit_clause is not None:
-            text += '\n LIMIT ' + self.process(select._limit_clause, **kw)
+            text += "\n LIMIT " + self.process(select._limit_clause, **kw)
         if select._offset_clause is not None:
-            text = '\n LIMIT '
+            text = "\n LIMIT "
             if select._limit_clause is None:
                 text += self.process(sql.literal(-1))
             else:
-                text += '0'
-            text += ',' + self.process(select._offset_clause, **kw)
+                text += "0"
+            text += "," + self.process(select._offset_clause, **kw)
         return text
 
     def for_update_clause(self, select, **kw):
-        return ''  # Not supported
+        return ""  # Not supported
 
 
 class DatabendExecutionContext(default.DefaultExecutionContext):
@@ -187,7 +205,7 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
 
 
 class DatabendDialect(default.DefaultDialect):
-    name = 'databend'
+    name = "databend"
     driver = "databend"
     supports_cast = True
     supports_unicode_statements = True
@@ -198,7 +216,7 @@ class DatabendDialect(default.DefaultDialect):
     supports_alter = True
 
     max_identifier_length = 127
-    default_paramstyle = 'pyformat'
+    default_paramstyle = "pyformat"
     colspecs = colspecs
     ischema_names = ischema_names
     convert_unicode = True
@@ -215,7 +233,7 @@ class DatabendDialect(default.DefaultDialect):
     _backslash_escapes = True
 
     def __init__(
-            self, context: Optional[ExecutionContext] = None, *args: Any, **kwargs: Any
+        self, context: Optional[ExecutionContext] = None, *args: Any, **kwargs: Any
     ):
         super(DatabendDialect, self).__init__(*args, **kwargs)
         self.context: Union[ExecutionContext, Dict] = context or {}
@@ -238,11 +256,11 @@ class DatabendDialect(default.DefaultDialect):
     def create_connect_args(self, url):
         parameters = dict(url.query)
         kwargs = {
-            'db_url': 'databend://%s:%s@%s:%d/%s' % (
-                url.username, url.password, url.host, url.port or 8000, url.database),
+            "db_url": "databend://%s:%s@%s:%d/%s"
+            % (url.username, url.password, url.host, url.port or 8000, url.database),
         }
         for k, v in parameters.items():
-            kwargs['db_url'] = kwargs['db_url'] + "?" + k + "=" + v
+            kwargs["db_url"] = kwargs["db_url"] + "?" + k + "=" + v
 
         return ([], kwargs)
 
@@ -250,7 +268,7 @@ class DatabendDialect(default.DefaultDialect):
         return connection.scalar("select currentDatabase()")
 
     def get_schema_names(self, connection, **kw):
-        return [row.name for row in connection.execute('SHOW DATABASES')]
+        return [row.name for row in connection.execute("SHOW DATABASES")]
 
     def get_view_names(self, connection, schema=None, **kw):
         return self.get_table_names(connection, schema, **kw)
@@ -258,15 +276,15 @@ class DatabendDialect(default.DefaultDialect):
     def _get_table_columns(self, connection, table_name, schema):
         full_table = table_name
         if schema:
-            full_table = schema + '.' + table_name
+            full_table = schema + "." + table_name
         # This needs the table name to be unescaped (no backticks).
-        return connection.execute('DESCRIBE TABLE {}'.format(full_table)).fetchall()
+        return connection.execute("DESCRIBE TABLE {}".format(full_table)).fetchall()
 
     def has_table(self, connection, table_name, schema=None, **kw):
         full_table = table_name
         if schema:
-            full_table = schema + '.' + table_name
-        for r in connection.execute('EXISTS TABLE {}'.format(full_table)):
+            full_table = schema + "." + table_name
+        for r in connection.execute("EXISTS TABLE {}".format(full_table)):
             if r.result == 1:
                 return True
         return False
@@ -274,11 +292,9 @@ class DatabendDialect(default.DefaultDialect):
     @reflection.cache
     def get_columns(self, connection, table_name, schema=None, **kw):
         query = """
-            select column_name,
-                   data_type,
-                   is_nullable
-              from information_schema.columns
-             where table_name = '{table_name}'
+            select column_name, data_type, is_nullable
+            from information_schema.columns
+            where table_name = '{table_name}'
         """.format(
             table_name=table_name
         )
@@ -314,23 +330,25 @@ class DatabendDialect(default.DefaultDialect):
     def get_indexes(self, connection, table_name, schema=None, **kw):
         full_table = table_name
         if schema:
-            full_table = schema + '.' + table_name
+            full_table = schema + "." + table_name
         # We must get the full table creation STMT to parse engine and partitions
-        rows = [r for r in connection.execute('SHOW CREATE TABLE {}'.format(full_table))]
+        rows = [
+            r for r in connection.execute("SHOW CREATE TABLE {}".format(full_table))
+        ]
         if len(rows) < 1:
             return []
         # VIEWs are not going to have ENGINE associated, there is no good way how to
         # determine partitioning columns (or indexes)
-        engine_spec = re.search(r'ENGINE = (\w+)\((.+)\)', rows[0].statement)
+        engine_spec = re.search(r"ENGINE = (\w+)\((.+)\)", rows[0].statement)
         if not engine_spec:
             return []
         engine, params = engine_spec.group(1, 2)
         # Handle partition columns
-        cols = re.search(r'\((.+)\)', params)
+        cols = re.search(r"\((.+)\)", params)
         if not cols:
             return []
-        col_names = [c.strip() for c in cols.group(1).split(',')]
-        return [{'name': 'partition', 'column_names': col_names, 'unique': False}]
+        col_names = [c.strip() for c in cols.group(1).split(",")]
+        return [{"name": "partition", "column_names": col_names, "unique": False}]
 
     # @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):
