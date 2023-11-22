@@ -338,27 +338,7 @@ class DatabendDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_indexes(self, connection, table_name, schema=None, **kw):
-        full_table = table_name
-        if schema:
-            full_table = schema + "." + table_name
-        # We must get the full table creation STMT to parse engine and partitions
-        rows = [
-            r for r in connection.execute("SHOW CREATE TABLE {}".format(full_table))
-        ]
-        if len(rows) < 1:
-            return []
-        # VIEWs are not going to have ENGINE associated, there is no good way how to
-        # determine partitioning columns (or indexes)
-        engine_spec = re.search(r"ENGINE = (\w+)\((.+)\)", rows[0].statement)
-        if not engine_spec:
-            return []
-        engine, params = engine_spec.group(1, 2)
-        # Handle partition columns
-        cols = re.search(r"\((.+)\)", params)
-        if not cols:
-            return []
-        col_names = [c.strip() for c in cols.group(1).split(",")]
-        return [{"name": "partition", "column_names": col_names, "unique": False}]
+        return []
 
     # @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):
