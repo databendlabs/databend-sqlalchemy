@@ -8,4 +8,4 @@ sampletest:
 	python databend_sqlalchemy/test.py
 
 install:
-	pip install -e .
+	pip install -e ".[dev]"
