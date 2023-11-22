@@ -18,14 +18,14 @@ The DSN format is similar to that of regular Postgres::
         from sqlalchemy import create_engine, text
         from sqlalchemy.engine.base import Connection, Engine
         engine = create_engine(
-            f"databend://{username}:{password}@{host_port_name}/{database_name}?secure=false"
+            f"databend://{username}:{password}@{host_port_name}/{database_name}?sslmode=disable"
         )
         connection = engine.connect()
         result = connection.execute(text("SELECT 1"))
         assert len(result.fetchall()) == 1
 
         import connector
-        cursor = connector.connect('http://root:@localhost:8081').cursor()
+        cursor = connector.connect('databend://root:@localhost:8000?sslmode=disable').cursor()
         cursor.execute('SELECT * FROM test')
         # print(cursor.fetchone())
         # print(cursor.fetchall())

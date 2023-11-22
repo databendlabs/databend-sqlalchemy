@@ -44,7 +44,7 @@ def engine(
     username: str, password: str, host_port_name: str, database_name: str
 ) -> Engine:
     return create_engine(
-        f"databend://{username}:{password}@{host_port_name}/{database_name}?secure=false"
+        f"databend://{username}:{password}@{host_port_name}/{database_name}?sslmode=disable"
     )
 
 

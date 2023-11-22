@@ -9,10 +9,10 @@ from sqlalchemy.exc import OperationalError
 
 class TestDatabendDialect:
     def test_set_params(
-            self, username: str, password: str, database_name: str, host_port_name: str
+        self, username: str, password: str, database_name: str, host_port_name: str
     ):
         engine = create_engine(
-            f"databend://{username}:{password}@{host_port_name}/{database_name}?secure=false"
+            f"databend://{username}:{password}@{host_port_name}/{database_name}?sslmode=disable"
         )
         connection = engine.connect()
         result = connection.execute(text("SELECT 1"))
@@ -36,13 +36,13 @@ class TestDatabendDialect:
         assert result.fetchall() == [("1896-01-01",)]
 
     def test_has_table(
-            self, engine: Engine, connection: Connection, fact_table_name: str
+        self, engine: Engine, connection: Connection, fact_table_name: str
     ):
         results = engine.dialect.has_table(connection, fact_table_name)
         assert results == 1
 
     def test_get_columns(
-            self, engine: Engine, connection: Connection, fact_table_name: str
+        self, engine: Engine, connection: Connection, fact_table_name: str
     ):
         results = engine.dialect.get_columns(connection, fact_table_name)
         assert len(results) > 0
