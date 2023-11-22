@@ -51,12 +51,9 @@ class TestDatabendDialect:
     def test_table_names(
         self, dialect: DatabendDialect, connection: mock.Mock(spec=MockDBApi)
     ):
-        def row_with_table_name(name):
-            return mock.Mock(table_name=name)
-
         connection.execute.return_value = [
-            row_with_table_name("table1"),
-            row_with_table_name("table2"),
+            ("table1",),
+            ("table2",),
         ]
 
         result = dialect.get_table_names(connection)
@@ -99,11 +96,9 @@ class TestDatabendDialect:
         ]
 
         expected_query = """
-            select column_name,
-                   data_type,
-                   is_nullable
-              from information_schema.columns
-             where table_name = 'table'
+            select column_name, data_type, is_nullable
+            from information_schema.columns
+            where table_name = 'table'
         """
 
         expected_query_schema = expected_query + " and table_schema = 'schema'"

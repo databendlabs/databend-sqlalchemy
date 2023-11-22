@@ -158,7 +158,7 @@ class DatabendCompiler(PGCompiler):
         )
 
     def visit_column(
-        self, column, add_to_result_map=None, include_table=True, **kwargs
+            self, column, add_to_result_map=None, include_table=True, **kwargs
     ):
         # Columns prefixed with table name are not supported
         return super(DatabendCompiler, self).visit_column(
@@ -233,7 +233,7 @@ class DatabendDialect(default.DefaultDialect):
     _backslash_escapes = True
 
     def __init__(
-        self, context: Optional[ExecutionContext] = None, *args: Any, **kwargs: Any
+            self, context: Optional[ExecutionContext] = None, *args: Any, **kwargs: Any
     ):
         super(DatabendDialect, self).__init__(*args, **kwargs)
         self.context: Union[ExecutionContext, Dict] = context or {}
@@ -257,7 +257,7 @@ class DatabendDialect(default.DefaultDialect):
         parameters = dict(url.query)
         kwargs = {
             "db_url": "databend://%s:%s@%s:%d/%s"
-            % (url.username, url.password, url.host, url.port or 8000, url.database),
+                      % (url.username, url.password, url.host, url.port or 8000, url.database),
         }
         for k, v in parameters.items():
             kwargs["db_url"] = kwargs["db_url"] + "?" + k + "=" + v
@@ -265,10 +265,10 @@ class DatabendDialect(default.DefaultDialect):
         return ([], kwargs)
 
     def _get_default_schema_name(self, connection):
-        return connection.scalar("select currentDatabase()")
+        return connection.scalar(text("select currentDatabase()"))
 
     def get_schema_names(self, connection, **kw):
-        return [row.name for row in connection.execute("SHOW DATABASES")]
+        return [row[0] for row in connection.execute("SHOW DATABASES")]
 
     def get_view_names(self, connection, schema=None, **kw):
         return self.get_table_names(connection, schema, **kw)
@@ -278,14 +278,14 @@ class DatabendDialect(default.DefaultDialect):
         if schema:
             full_table = schema + "." + table_name
         # This needs the table name to be unescaped (no backticks).
-        return connection.execute("DESCRIBE TABLE {}".format(full_table)).fetchall()
+        return connection.execute(text("DESC {}".format(full_table))).fetchall()
 
     def has_table(self, connection, table_name, schema=None, **kw):
         full_table = table_name
         if schema:
             full_table = schema + "." + table_name
-        for r in connection.execute("EXISTS TABLE {}".format(full_table)):
-            if r.result == 1:
+        for r in connection.execute(text("EXISTS TABLE {}".format(full_table))):
+            if r[0] == 1:
                 return True
         return False
 
@@ -309,12 +309,22 @@ class DatabendDialect(default.DefaultDialect):
         return [
             {
                 "name": row[0],
-                "type": ischema_names[row[1].lower()],
+                "type": ischema_names[self.extract_nullable_string(row[1]).lower()],
                 "nullable": get_is_nullable(row[2]),
                 "default": None,
             }
             for row in result
         ]
+
+    def extract_nullable_string(self, target):
+        if "Nullable" in target:
+            match = re.match(r'Nullable\(([^)]+)\)', target)
+            if match:
+                return match.group(1)
+            else:
+                return ""
+        else:
+            return target
 
     @reflection.cache
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
@@ -359,7 +369,7 @@ class DatabendDialect(default.DefaultDialect):
             )
 
         result = connection.execute(text(query))
-        return [row.table_name for row in result]
+        return [row[0] for row in result]
 
     def do_rollback(self, dbapi_connection):
         # No transactions

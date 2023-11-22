@@ -1,49 +1,24 @@
-[project]
-name = "databend-sqlalchemy"
-description = "Databend dialect for SQLAlchemy"
-license = { text = "Apache-2.0" }
-requires-python = ">=3.7, <4"
-keywords = ["databend", "db", "database", "cloud", "analytics", "SQLAlchemy"]
-classifiers = [
-    "Environment :: Console",
-
-    "Intended Audience :: Developers",
-    "Intended Audience :: Information Technology",
-
-    "Operating System :: OS Independent",
-
-    "Programming Language :: SQL",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: Implementation :: PyPy",
-
-    "Topic :: Database",
-    "Topic :: Software Development",
-    "Topic :: Software Development :: Libraries",
-    "Topic :: Software Development :: Libraries :: Application Frameworks",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Scientific/Engineering :: Information Analysis",
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel"
 ]
-dependencies = ["databend-driver", "sqlalchemy>1.3.21,<2.0"]
-dynamic = ["version", "readme", "entry-points", "scripts"]
+build-backend = "setuptools.build_meta"
 
+# configure isort to be compatible with black
+# source: https://black.readthedocs.io/en/stable/compatible_configs.html#configuration
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
 
-[project.optional-dependencies]
-test = ["pytest"]
-lint = ["black", "flake8"]
-superset = ["apache_superset>=1.4.1"]
-
-[project.urls]
-Repository = "https://github.com/datafuselabs/databend-sqlalchemy"
-Homepage = "https://databend.rs"
-
-[tool.setuptools]
-packages = ["databend_sqlalchemy", "cc_superset"]
-
-[tool.setuptools.dynamic]
-version = { attr = "databend_sqlalchemy.VERSION" }
-readme = { file = ["README.rst"] }
-entry-points = { file = "entrypoints.cfg" }
+[tool.black]
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | dist
+)/
+'''

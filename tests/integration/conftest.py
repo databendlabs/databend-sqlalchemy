@@ -8,9 +8,9 @@ from sqlalchemy.engine.base import Connection, Engine
 LOGGER = getLogger(__name__)
 
 DATABASE_NAME = "default"
-USERNAME = "root"
-PASSWORD = "root"
-HOST_PORT = "localhost:8002"
+USERNAME = "databend"
+PASSWORD = "databend"
+HOST_PORT = "localhost:8000"
 
 
 def must_env(var_name: str) -> str:
