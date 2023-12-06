@@ -230,7 +230,10 @@ class Cursor(object):
             raise Exception("No rows yet")
         else:
             self._rownumber += 1
-            row = self._rows.__next__()
+            try:
+                row = self._rows.__next__()
+            except StopIteration:
+                return None
             print("--> values:", row.values())
             return row.values()
 
