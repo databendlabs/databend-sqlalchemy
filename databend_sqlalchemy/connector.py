@@ -188,7 +188,6 @@ class Cursor(object):
                 columns.append((field.name, field.data_type))
             if self._state != self._STATE_RUNNING:
                 raise Exception("Should be running if processing response")
-            print("==> rows", rows)
             self._rows = rows
             print("==> columns", columns)
             self._columns = columns
@@ -232,7 +231,6 @@ class Cursor(object):
         else:
             self._rownumber += 1
             row = self._rows.__next__()
-            print("--> row:", row)
             print("--> values:", row.values())
             return row.values()
 
@@ -255,7 +253,7 @@ class Cursor(object):
         if self._rows:
             for row in self._rows:
                 self._rownumber += 1
-                data.append(row)
+                data.append(row.values())
                 if len(data) == size:
                     break
         return data
@@ -271,7 +269,7 @@ class Cursor(object):
         if self._rows:
             for row in self._rows:
                 self._rownumber += 1
-                data.append(row)
+                data.append(row.values())
         return data
 
     def __next__(self):
