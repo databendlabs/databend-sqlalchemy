@@ -232,8 +232,9 @@ class Cursor(object):
         else:
             self._rownumber += 1
             row = self._rows.__next__()
-            print("-->", row)
-            return row
+            print("--> row:", row)
+            print("--> values:", row.values())
+            return row.values()
 
     def fetchmany(self, size=None):
         """Fetch the next set of rows of a query result, returning a sequence of sequences (e.g. a
