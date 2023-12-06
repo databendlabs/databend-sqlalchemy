@@ -4,14 +4,12 @@
 #
 # Many docstrings in this file are based on the PEP, which is in the public domain.
 
-from __future__ import absolute_import
-from __future__ import unicode_literals
 import re
 import uuid
 from datetime import datetime
 from databend_sqlalchemy.errors import ServerException, NotSupportedError
 
-from databend_py import Client
+from databend_py import BlockingDatabendClient
 
 # PEP 249 module globals
 apilevel = "2.0"
@@ -96,24 +94,22 @@ def connect(*args, **kwargs):
     return Connection(*args, **kwargs)
 
 
-class Connection(Client):
+class Connection:
     """
     These objects are small stateless factories for cursors, which do all the real work.
     """
 
-    def __init__(self, db_url="http://root:@localhost:8081"):
-        super(Connection, self).__init__(db_url)
-        self.db_url = db_url
-        self.client = Client.from_url(db_url)
+    def __init__(self, dsn="databend://root:@localhost:8000/?sslmode=disable"):
+        self.client = BlockingDatabendClient(dsn)
 
     def close(self):
-        self.client.disconnect()
+        pass
 
     def commit(self):
         pass
 
     def cursor(self):
-        return Cursor(self)
+        return Cursor(self.client.get_conn())
 
     def rollback(self):
         raise NotSupportedError("Transactions are not supported")  # pragma: no cover
@@ -131,8 +127,8 @@ class Cursor(object):
     _STATE_RUNNING = "Running"
     _STATE_SUCCEEDED = "Succeeded"
 
-    def __init__(self, connector):
-        self._db = connector.client
+    def __init__(self, conn):
+        self._db = conn
         self._reset_state()
 
     def _reset_state(self):
@@ -141,7 +137,7 @@ class Cursor(object):
         self._rownumber = 0
         # Internal helper state
         self._state = self._STATE_NONE
-        self._data = None
+        self._rows = None
         self._columns = None
 
     @property
@@ -183,10 +179,16 @@ class Cursor(object):
         self._uuid = uuid.uuid1()
 
         if is_response:
-            column_types, response = self._db.execute(
-                operation, parameters, with_column_types=True
-            )
-            self._process_response(column_types, response)
+            rows = self._db.query_iter(operation)
+            schema = rows.schema()
+            columns = []
+            for field in schema.fields():
+                columns.append((field.name, field.data_type))
+            if self._state != self._STATE_RUNNING:
+                raise Exception("Should be running if processing response")
+            self._rows = rows
+            self._columns = columns
+            self._state = self._STATE_SUCCEEDED
 
     def executemany(self, operation, seq_of_parameters):
         """Prepare a database operation (query or command) and then execute it against all parameter
@@ -221,11 +223,15 @@ class Cursor(object):
         no more data is available."""
         if self._state == self._STATE_NONE:
             raise Exception("No query yet")
-        if not self._data:
-            return None
+        if not self._rows:
+            raise Exception("No rows yet")
         else:
             self._rownumber += 1
-            return self._data.pop(0)
+            try:
+                row = self._rows.__next__()
+            except StopIteration:
+                return None
+            return row.values()
 
     def fetchmany(self, size=None):
         """Fetch the next set of rows of a query result, returning a sequence of sequences (e.g. a
@@ -242,15 +248,14 @@ class Cursor(object):
         if size is None:
             size = 1
 
-        if not self._data:
-            return []
-        else:
-            if len(self._data) > size:
-                result, self._data = self._data[:size], self._data[size:]
-            else:
-                result, self._data = self._data, []
-            self._rownumber += len(result)
-            return result
+        data = []
+        if self._rows:
+            for row in self._rows:
+                self._rownumber += 1
+                data.append(row.values())
+                if len(data) == size:
+                    break
+        return data
 
     def fetchall(self):
         """Fetch all (remaining) rows of a query result, returning them as a sequence of sequences
@@ -259,23 +264,19 @@ class Cursor(object):
         if self._state == self._STATE_NONE:
             raise Exception("No query yet")
 
-        if not self._data:
-            return []
-        else:
-            result, self._data = self._data, []
-            self._rownumber += len(result)
-            return result
+        data = []
+        if self._rows:
+            for row in self._rows:
+                self._rownumber += 1
+                data.append(row.values())
+        return data
 
     def __next__(self):
         """Return the next row from the currently executing SQL statement using the same semantics
         as :py:meth:`fetchone`. A ``StopIteration`` exception is raised when the result set is
         exhausted.
         """
-        one = self.fetchone()
-        if one is None:
-            raise StopIteration
-        else:
-            return one
+        return self.fetchone()
 
     next = __next__
 
@@ -287,23 +288,14 @@ class Cursor(object):
         if self._state == self._STATE_NONE:
             raise ServerException("No query yet")
         if self._uuid is None:
-            assert self._state == self._STATE_SUCCEEDED, "Query should be finished"
+            if self._state != self._STATE_RUNNING:
+                raise ServerException("Query should be running")
             return
         # Replace current running query to cancel it
         self._db.execute("SELECT 1")
         self._state = self._STATE_SUCCEEDED
         self._uuid = None
-        self._data = None
+        self._rows = None
 
     def poll(self):
         pass
-
-    def _process_response(self, column_types, response):
-        """Update the internal state with the data from the response"""
-        assert (
-            self._state == self._STATE_RUNNING
-        ), "Should be running if processing response"
-
-        self._data = response
-        self._columns = column_types
-        self._state = self._STATE_SUCCEEDED

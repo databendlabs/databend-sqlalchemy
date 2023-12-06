@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     services:
       databend:
-        # image: datafuselabs/databend-query
         image: datafuselabs/databend
         env:
           QUERY_DEFAULT_USER: databend
@@ -22,16 +21,17 @@ jobs:
           - 9000:9000
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Setup Python-3.10
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Pip Install
         run: |
-          make install
+          pip install pipenv
+          pipenv install --dev --skip-lock
 
       - name: Verify Service Running
         run: |
@@ -39,9 +39,14 @@ jobs:
           docker logs ${cid}
           curl -v http://localhost:8000/v1/health
 
-      - name: Test
+      - name: Unit Test
         env:
-          TEST_DATABEND_DSN: "http://databend:databend@localhost:8000/default?secure=false"
+          TEST_DATABEND_DSN: "databend://databend:databend@localhost:8000/default?sslmode=disable"
         run: |
-          make unittest
-          make integration
+          pipenv run pytest -s tests/unit
+
+      - name: Integration Test
+        env:
+          TEST_DATABEND_DSN: "databend://databend:databend@localhost:8000/default?sslmode=disable"
+        run: |
+          pipenv run pytest -s tests/integration

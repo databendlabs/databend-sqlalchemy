@@ -158,7 +158,7 @@ class DatabendCompiler(PGCompiler):
         )
 
     def visit_column(
-            self, column, add_to_result_map=None, include_table=True, **kwargs
+        self, column, add_to_result_map=None, include_table=True, **kwargs
     ):
         # Columns prefixed with table name are not supported
         return super(DatabendCompiler, self).visit_column(
@@ -233,7 +233,7 @@ class DatabendDialect(default.DefaultDialect):
     _backslash_escapes = True
 
     def __init__(
-            self, context: Optional[ExecutionContext] = None, *args: Any, **kwargs: Any
+        self, context: Optional[ExecutionContext] = None, *args: Any, **kwargs: Any
     ):
         super(DatabendDialect, self).__init__(*args, **kwargs)
         self.context: Union[ExecutionContext, Dict] = context or {}
@@ -242,7 +242,7 @@ class DatabendDialect(default.DefaultDialect):
     def dbapi(cls):
         try:
             import databend_sqlalchemy.connector as connector
-        except:
+        except Exception:
             import connector
         return connector
 
@@ -256,11 +256,11 @@ class DatabendDialect(default.DefaultDialect):
     def create_connect_args(self, url):
         parameters = dict(url.query)
         kwargs = {
-            "db_url": "databend://%s:%s@%s:%d/%s"
-                      % (url.username, url.password, url.host, url.port or 8000, url.database),
+            "dsn": "databend://%s:%s@%s:%d/%s"
+            % (url.username, url.password, url.host, url.port or 8000, url.database),
         }
         for k, v in parameters.items():
-            kwargs["db_url"] = kwargs["db_url"] + "?" + k + "=" + v
+            kwargs["dsn"] = kwargs["dsn"] + "?" + k + "=" + v
 
         return ([], kwargs)
 
@@ -318,7 +318,7 @@ class DatabendDialect(default.DefaultDialect):
 
     def extract_nullable_string(self, target):
         if "Nullable" in target:
-            match = re.match(r'Nullable\(([^)]+)\)', target)
+            match = re.match(r"Nullable\(([^)]+)\)", target)
             if match:
                 return match.group(1)
             else:

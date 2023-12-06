@@ -2,7 +2,9 @@ from databend_sqlalchemy import connector
 
 
 def test():
-    conn = connector.connect("http://databend:databend@localhost:8000/default?secure=false")
+    conn = connector.connect(
+        "databend://databend:databend@localhost:8000/default?sslmode=disable"
+    )
     cursor = conn.cursor()
     cursor.execute(
         "select null as db, name as name, database as schema, if(engine = 'VIEW', 'view', 'table') "
