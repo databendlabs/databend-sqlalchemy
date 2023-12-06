@@ -178,6 +178,8 @@ class Cursor(object):
         self._state = self._STATE_RUNNING
         self._uuid = uuid.uuid1()
 
+        print("==> execute", operation, parameters, is_response)
+
         if is_response:
             rows = self._db.query_iter(operation)
             schema = rows.schema()
@@ -186,7 +188,9 @@ class Cursor(object):
                 columns.append((field.name, field.data_type))
             if self._state != self._STATE_RUNNING:
                 raise Exception("Should be running if processing response")
+            print("==> rows", rows)
             self._rows = rows
+            print("==> columns", columns)
             self._columns = columns
             self._state = self._STATE_SUCCEEDED
 
