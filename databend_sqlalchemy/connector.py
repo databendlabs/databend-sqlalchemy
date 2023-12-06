@@ -227,7 +227,9 @@ class Cursor(object):
             raise Exception("No rows yet")
         else:
             self._rownumber += 1
-            return self._rows.__next__()
+            row = self._rows.__next__()
+            print("-->", row)
+            return row
 
     def fetchmany(self, size=None):
         """Fetch the next set of rows of a query result, returning a sequence of sequences (e.g. a
