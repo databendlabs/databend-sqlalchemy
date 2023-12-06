@@ -31,6 +31,7 @@ jobs:
 
       - name: Pip Install
         run: |
+          pip install pipenv
           pipenv install --dev --locked
 
       - name: Verify Service Running
