@@ -284,9 +284,11 @@ class DatabendDialect(default.DefaultDialect):
         full_table = table_name
         if schema:
             full_table = schema + "." + table_name
-        for r in connection.execute(text("EXISTS TABLE {}".format(full_table))):
-            if r[0] == 1:
-                return True
+        result = connection.execute(text("EXISTS TABLE {}".format(full_table)))
+        print("==>", result)
+        # for r in connection.execute(text("EXISTS TABLE {}".format(full_table))):
+        #     if r[0] == 1:
+        #         return True
         return False
 
     @reflection.cache
