@@ -31,7 +31,7 @@ jobs:
 
       - name: Pip Install
         run: |
-          make install
+          pipenv install --dev --locked
 
       - name: Verify Service Running
         run: |
@@ -39,9 +39,14 @@ jobs:
           docker logs ${cid}
           curl -v http://localhost:8000/v1/health
 
-      - name: Test
+      - name: Unit Test
         env:
-          TEST_DATABEND_DSN: "http://databend:databend@localhost:8000/default?secure=false"
+          TEST_DATABEND_DSN: "databend://databend:databend@localhost:8000/default?sslmode=disable"
         run: |
-          make unittest
-          make integration
+          pipenv run pytest -s tests/unit
+
+      - name: Integration Test
+        env:
+          TEST_DATABEND_DSN: "databend://databend:databend@localhost:8000/default?sslmode=disable"
+        run: |
+          pipenv run pytest -s tests/integration
