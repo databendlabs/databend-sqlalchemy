@@ -285,7 +285,6 @@ class DatabendDialect(default.DefaultDialect):
         if schema:
             full_table = schema + "." + table_name
         for r in connection.execute(text("EXISTS TABLE {}".format(full_table))):
-            print("==>", r)
             if r[0] == 1:
                 return True
         return False
