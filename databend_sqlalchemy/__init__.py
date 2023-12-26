@@ -1,5 +1,5 @@
 #!/usr/bin/env python
 
 
-VERSION = (0, 4, 0)
+VERSION = (0, 4, 1)
 __version__ = ".".join(str(x) for x in VERSION)
