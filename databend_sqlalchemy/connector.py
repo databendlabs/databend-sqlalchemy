@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from databend_sqlalchemy.errors import ServerException, NotSupportedError
 
-from databend_py import BlockingDatabendClient
+from databend_driver import BlockingDatabendClient
 
 # PEP 249 module globals
 apilevel = "2.0"
