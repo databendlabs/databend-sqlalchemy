@@ -158,7 +158,7 @@ class DatabendCompiler(PGCompiler):
         )
 
     def visit_column(
-        self, column, add_to_result_map=None, include_table=True, **kwargs
+            self, column, add_to_result_map=None, include_table=True, **kwargs
     ):
         # Columns prefixed with table name are not supported
         return super(DatabendCompiler, self).visit_column(
@@ -233,7 +233,7 @@ class DatabendDialect(default.DefaultDialect):
     _backslash_escapes = True
 
     def __init__(
-        self, context: Optional[ExecutionContext] = None, *args: Any, **kwargs: Any
+            self, context: Optional[ExecutionContext] = None, *args: Any, **kwargs: Any
     ):
         super(DatabendDialect, self).__init__(*args, **kwargs)
         self.context: Union[ExecutionContext, Dict] = context or {}
@@ -257,7 +257,7 @@ class DatabendDialect(default.DefaultDialect):
         parameters = dict(url.query)
         kwargs = {
             "dsn": "databend://%s:%s@%s:%d/%s"
-            % (url.username, url.password, url.host, url.port or 8000, url.database),
+                   % (url.username, url.password, url.host, url.port or 8000, url.database),
         }
         for k, v in parameters.items():
             kwargs["dsn"] = kwargs["dsn"] + "?" + k + "=" + v
@@ -309,22 +309,12 @@ class DatabendDialect(default.DefaultDialect):
         return [
             {
                 "name": row[0],
-                "type": ischema_names[self.extract_nullable_string(row[1]).lower()],
+                "type": ischema_names[extract_nullable_string(row[1]).lower()],
                 "nullable": get_is_nullable(row[2]),
                 "default": None,
             }
             for row in result
         ]
-
-    def extract_nullable_string(self, target):
-        if "Nullable" in target:
-            match = re.match(r"Nullable\(([^)]+)\)", target)
-            if match:
-                return match.group(1)
-            else:
-                return ""
-        else:
-            return target
 
     @reflection.cache
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
@@ -369,3 +359,18 @@ dialect = DatabendDialect
 
 def get_is_nullable(column_is_nullable: str) -> bool:
     return column_is_nullable == "YES"
+
+
+def extract_nullable_string(target):
+    pattern = r'Nullable\((\w+)(?:\((.*?)\))?\)'
+    if "Nullable" in target:
+        match = re.match(pattern, target)
+        if match:
+            return match.group(1)
+        else:
+            return ""
+    else:
+        sl = target.split("(")
+        if len(sl) > 0:
+            return sl[0]
+        return target
