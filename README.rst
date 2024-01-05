@@ -39,4 +39,4 @@ Compatibility
 ---------------
 
 - If databend version >= v0.9.0 or later, you need to use databend-sqlalchemy version >= v0.1.0.
-- The databend-sqlalchemy use [databend-py](https://github.com/datafuselabs/databend-py) as internal driver before v0.3.2, but after v0.3.2 it use [databend driver python binding](https://github.com/datafuselabs/bendsql/blob/main/bindings/python/README.md) as internal driver. The only difference between the two is that the connection parameters provided in the DSN are different. When using the corresponding version, you should refer to the connection parameters provided by the corresponding Driver.
+- The databend-sqlalchemy use [databend-py](https://github.com/datafuselabs/databend-py) as internal driver when version < v0.4.0, but when version >= v0.4.0 it use [databend driver python binding](https://github.com/datafuselabs/bendsql/blob/main/bindings/python/README.md) as internal driver. The only difference between the two is that the connection parameters provided in the DSN are different. When using the corresponding version, you should refer to the connection parameters provided by the corresponding Driver.
