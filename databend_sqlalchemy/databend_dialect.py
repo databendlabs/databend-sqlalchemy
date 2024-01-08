@@ -89,6 +89,7 @@ ischema_names = {
     "map": MAP,
     "json": JSON,
     "varchar": VARCHAR,
+    "boolean": BOOLEAN,
 }
 
 

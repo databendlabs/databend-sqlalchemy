@@ -98,6 +98,7 @@ class TestDatabendDialect:
         connection.execute.return_value = [
             multi_column_row(["name1", "INT", "YES"]),
             multi_column_row(["name2", "date", "NO"]),
+            multi_column_row(["name3", "boolean", "YES"]),
         ]
 
         expected_query = """
@@ -126,6 +127,12 @@ class TestDatabendDialect:
                     "name": "name2",
                     "type": sqlalchemy.types.DATE,
                     "nullable": False,
+                    "default": None,
+                },
+                {
+                    "name": "name3",
+                    "type": sqlalchemy.types.BOOLEAN,
+                    "nullable": True,
                     "default": None,
                 },
             ]
