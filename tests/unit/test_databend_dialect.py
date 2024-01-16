@@ -99,6 +99,7 @@ class TestDatabendDialect:
             multi_column_row(["name1", "INT", "YES"]),
             multi_column_row(["name2", "date", "NO"]),
             multi_column_row(["name3", "boolean", "YES"]),
+            multi_column_row(["name4", "binary", "YES"])
         ]
 
         expected_query = """
@@ -132,6 +133,12 @@ class TestDatabendDialect:
                 {
                     "name": "name3",
                     "type": sqlalchemy.types.BOOLEAN,
+                    "nullable": True,
+                    "default": None,
+                },
+                {
+                    "name": "name4",
+                    "type": sqlalchemy.types.BINARY,
                     "nullable": True,
                     "default": None,
                 },
