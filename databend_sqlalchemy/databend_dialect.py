@@ -52,20 +52,6 @@ class MAP(sqltypes.TypeEngine):
         super(MAP, self).__init__()
 
 
-_type_map = {
-    "ARRAY": sqlalchemy.types.ARRAY,
-    "BOOLEAN": sqlalchemy.types.Boolean,
-    "DATETIME": sqlalchemy.types.DATETIME,
-    "DATE": sqlalchemy.types.DATE,
-    "DOUBLE": sqlalchemy.types.Float,
-    "FLOAT": sqlalchemy.types.Float,
-    "INT64": sqlalchemy.types.Integer,
-    "INTEGER": sqlalchemy.types.Integer,
-    "NUMERIC": sqlalchemy.types.Numeric,
-    "STRING": sqlalchemy.types.String,
-    "TIMESTAMP": sqlalchemy.types.TIMESTAMP,
-}
-
 # Type converters
 ischema_names = {
     "int": INTEGER,
@@ -90,6 +76,7 @@ ischema_names = {
     "json": JSON,
     "varchar": VARCHAR,
     "boolean": BOOLEAN,
+    "binary": BINARY,
 }
 
 
