@@ -1,4 +1,4 @@
-name: CI
+name: CI TEST
 
 on:
   push:
@@ -39,14 +39,8 @@ jobs:
           docker logs ${cid}
           curl -v http://localhost:8000/v1/health
 
-      - name: Unit Test
+      - name: SQLAlchemy Test Suite
         env:
           TEST_DATABEND_DSN: "databend://databend:databend@localhost:8000/default?sslmode=disable"
         run: |
-          pipenv run pytest -s tests/unit
-
-      - name: Integration Test
-        env:
-          TEST_DATABEND_DSN: "databend://databend:databend@localhost:8000/default?sslmode=disable"
-        run: |
-          pipenv run pytest -s tests/integration
+          pipenv run pytest -n4

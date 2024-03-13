@@ -3,11 +3,11 @@
 # See http://www.python.org/dev/peps/pep-0249/
 #
 # Many docstrings in this file are based on the PEP, which is in the public domain.
-
+import decimal
 import re
 import uuid
-from datetime import datetime
-from databend_sqlalchemy.errors import ServerException, NotSupportedError
+from datetime import datetime, date
+from databend_sqlalchemy.errors import Error, ServerException, NotSupportedError
 
 from databend_driver import BlockingDatabendClient
 
@@ -17,15 +17,7 @@ threadsafety = 2  # Threads may share the module and connections.
 paramstyle = "pyformat"  # Python extended format codes, e.g. ...WHERE name=%(name)s
 
 
-class Error(Exception):
-    """Exception that is the base class of all other error exceptions.
-    You can use this to catch all errors with one single except statement.
-    """
-
-    pass
-
-
-class ParamEscaper(object):
+class ParamEscaper:
     def escape_args(self, parameters):
         if isinstance(parameters, dict):
             return {k: self.escape_item(v) for k, v in parameters.items()}
@@ -45,7 +37,7 @@ class ParamEscaper(object):
         if isinstance(item, bytes):
             item = item.decode("utf-8")
         return "'{}'".format(
-            item.replace("\\", "\\\\").replace("'", "\\'").replace("$", "$$")
+            item.replace("\\", "\\\\").replace("'", "\\'").replace("$", "$$").replace("%", "%%")
         )
 
     def escape_item(self, item):
@@ -53,7 +45,9 @@ class ParamEscaper(object):
             return "NULL"
         elif isinstance(item, (int, float)):
             return self.escape_number(item)
-        elif isinstance(item, datetime):
+        elif isinstance(item, decimal.Decimal):
+            return self.escape_number(item)
+        elif isinstance(item, (datetime, date)):
             return self.escape_string(item.strftime("%Y-%m-%d %H:%M:%S"))
         else:
             return self.escape_string(item)
@@ -115,7 +109,7 @@ class Connection:
         raise NotSupportedError("Transactions are not supported")  # pragma: no cover
 
 
-class Cursor(object):
+class Cursor:
     """These objects represent a database cursor, which is used to manage the context of a fetch
     operation.
 
@@ -173,22 +167,39 @@ class Cursor(object):
     def execute(self, operation, parameters=None, is_response=True):
         """Prepare and execute a database operation (query or command)."""
 
+        #ToDo - Fix this, which is preventing the execution of blank DDL sunch as CREATE INDEX statements which aren't suppoorted
+        # Seems hard to fix when statements are coming from metadata.create_all()
+        if operation == "":
+            return
+
         self._reset_state()
 
         self._state = self._STATE_RUNNING
         self._uuid = uuid.uuid1()
 
-        if is_response:
-            rows = self._db.query_iter(operation)
-            schema = rows.schema()
-            columns = []
-            for field in schema.fields():
-                columns.append((field.name, field.data_type))
-            if self._state != self._STATE_RUNNING:
-                raise Exception("Should be running if processing response")
-            self._rows = rows
-            self._columns = columns
-            self._state = self._STATE_SUCCEEDED
+        try:
+            # operation = operation.replace('%%', '%')
+            if parameters:
+                query = operation % _escaper.escape_args(parameters)
+            else:
+                query = operation
+            query = query.replace('%%', '%')
+            if is_response:
+                rows = self._db.query_iter(query)
+                schema = rows.schema()
+                columns = []
+                for field in schema.fields():
+                    columns.append((field.name, field.data_type))
+                if self._state != self._STATE_RUNNING:
+                    raise Exception("Should be running if processing response")
+                self._rows = rows
+                self._columns = columns
+                self._state = self._STATE_SUCCEEDED
+            else:
+                self._db.exec(query)
+        except Exception as e:
+            # We have to raise dbAPI error
+            raise Error(str(e)) from e
 
     def executemany(self, operation, seq_of_parameters):
         """Prepare a database operation (query or command) and then execute it against all parameter
@@ -208,23 +219,27 @@ class Cursor(object):
 
         m = RE_INSERT_VALUES.match(operation)
         if m:
-            q_prefix = m.group(1) % ()
-            q_values = m.group(2).rstrip()
+            try:
+                q_prefix = m.group(1) #.replace('%%', '%') % ()
+                q_values = m.group(2).rstrip()
 
-            for parameters in seq_of_parameters[:-1]:
-                values_list.append(q_values % _escaper.escape_args(parameters))
-            query = "{} {};".format(q_prefix, ",".join(values_list))
-            return self._db.raw(query)
-        for parameters in seq_of_parameters[:-1]:
+                for parameters in seq_of_parameters:
+                    values_list.append(q_values % _escaper.escape_args(parameters))
+                query = "{} {};".format(q_prefix, ",".join(values_list))
+                return self._db.exec(query)
+            except Exception as e:
+                # We have to raise dbAPI error
+                raise Error(str(e)) from e
+        for parameters in seq_of_parameters:
             self.execute(operation, parameters, is_response=False)
 
     def fetchone(self):
         """Fetch the next row of a query result set, returning a single sequence, or ``None`` when
         no more data is available."""
         if self._state == self._STATE_NONE:
-            raise Exception("No query yet")
+            raise Error("No query yet")
         if not self._rows:
-            raise Exception("No rows yet")
+            raise Error("No rows yet")
         else:
             self._rownumber += 1
             try:
@@ -243,7 +258,7 @@ class Cursor(object):
         specified number of rows not being available, fewer rows may be returned.
         """
         if self._state == self._STATE_NONE:
-            raise Exception("No query yet")
+            raise Error("No query yet")
 
         if size is None:
             size = 1
@@ -262,7 +277,7 @@ class Cursor(object):
         (e.g. a list of tuples).
         """
         if self._state == self._STATE_NONE:
-            raise Exception("No query yet")
+            raise Error("No query yet")
 
         data = []
         if self._rows:
