@@ -15,6 +15,7 @@ from databend_driver import BlockingDatabendClient
 apilevel = "2.0"
 threadsafety = 2  # Threads may share the module and connections.
 paramstyle = "pyformat"  # Python extended format codes, e.g. ...WHERE name=%(name)s
+Binary = bytes  # to satisfy dialect.dbapi.Binary
 
 
 class ParamEscaper:
@@ -226,12 +227,13 @@ class Cursor:
                 for parameters in seq_of_parameters:
                     values_list.append(q_values % _escaper.escape_args(parameters))
                 query = "{} {};".format(q_prefix, ",".join(values_list))
-                return self._db.exec(query)
+                self._db.exec(query)
             except Exception as e:
                 # We have to raise dbAPI error
                 raise Error(str(e)) from e
-        for parameters in seq_of_parameters:
-            self.execute(operation, parameters, is_response=False)
+        else:
+            for parameters in seq_of_parameters:
+                self.execute(operation, parameters, is_response=False)
 
     def fetchone(self):
         """Fetch the next row of a query result set, returning a single sequence, or ``None`` when

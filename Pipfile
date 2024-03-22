@@ -10,6 +10,8 @@ databend-sqlalchemy = {file = ".", editable = true}
 black = "*"
 flake8 = "*"
 pytest = "*"
+pytest-xdist = "*"
+
 
 [requires]
 python_version = "3.11"

@@ -26,6 +26,7 @@ from sqlalchemy.types import (
     TIMESTAMP,
 )
 from sqlalchemy.engine import ExecutionContext, default
+from sqlalchemy.exc import DBAPIError, NoSuchTableError
 
 
 # Type decorators
@@ -296,6 +297,8 @@ class DatabendDialect(default.DefaultDialect):
     ischema_names = ischema_names
     convert_unicode = True
     returns_unicode_strings = True
+    returns_native_bytes = True
+    div_is_floordiv = False
     description_encoding = None
     postfetch_lastrowid = False
 
@@ -354,20 +357,20 @@ class DatabendDialect(default.DefaultDialect):
         return [row[0] for row in connection.execute(text("SHOW DATABASES"))]
 
     def _get_table_columns(self, connection, table_name, schema):
-        full_table = self.identifier_preparer.quote_identifier(table_name)
-        if schema:
-            full_table = self.identifier_preparer.quote_identifier(schema) + "." + full_table
-        # This needs the table name to be unescaped (no backticks).
-        return connection.execute(text(f"DESC {full_table}")).fetchall()
+        if schema is None:
+            schema = self.default_schema_name
+        quote_table_name = self.identifier_preparer.quote_identifier(table_name)
+        quote_schema = self.identifier_preparer.quote_identifier(schema)
 
+        return connection.execute(text(f"DESC {quote_schema}.{quote_table_name}")).fetchall()
+
+    @reflection.cache
     def has_table(self, connection, table_name, schema=None, **kw):
-        table_name = self.identifier_preparer.quote_identifier(table_name)
-        if schema:
-            schema = self.identifier_preparer.quote_identifier(schema)
-            query = f"""EXISTS TABLE {schema}.{table_name}"""
-        else:
-            query = f"""EXISTS TABLE {table_name}"""
-
+        if schema is None:
+            schema = self.default_schema_name
+        quote_table_name = self.identifier_preparer.quote_identifier(table_name)
+        quote_schema = self.identifier_preparer.quote_identifier(schema)
+        query = f"""EXISTS TABLE {quote_schema}.{quote_table_name}"""
         r = connection.scalar(text(query))
         if r == 1:
             return True
@@ -390,7 +393,7 @@ class DatabendDialect(default.DefaultDialect):
             schema = self.default_schema_name
         result = connection.execute(query, dict(table_name=table_name, schema_name=schema))
 
-        return [
+        cols = [
             {
                 "name": row[0],
                 "type": self._get_column_type(row[1]),
@@ -399,18 +402,29 @@ class DatabendDialect(default.DefaultDialect):
             }
             for row in result
         ]
+        if not cols and not self.has_table(connection, table_name, schema):
+            raise NoSuchTableError(table_name)
+        return cols
 
     @reflection.cache
     def get_view_definition(self, connection, view_name, schema=None, **kw):
-        view_name = self.identifier_preparer.quote_identifier(view_name)
-        if schema:
-            schema = self.identifier_preparer.quote_identifier(schema)
-            query = f"""SHOW CREATE TABLE {schema}.{view_name}"""
-        else:
-            query = f"""SHOW CREATE TABLE {view_name}"""
+        if schema is None:
+            schema = self.default_schema_name
+        quote_schema = self.identifier_preparer.quote_identifier(schema)
+        quote_view_name = self.identifier_preparer.quote_identifier(view_name)
+        full_view_name = f"{quote_schema}.{quote_view_name}"
 
-        view_def = connection.execute(text(query)).first()
-        return view_def[1]
+        # ToDo : perhaps can be removed if we get `SHOW CREATE VIEW`
+        if view_name not in self.get_view_names(connection, schema):
+            raise NoSuchTableError(full_view_name)
+
+        query = f"""SHOW CREATE TABLE {full_view_name}"""
+        try:
+            view_def = connection.execute(text(query)).first()
+            return view_def[1]
+        except DBAPIError as e:
+            if '1025' in e.orig.message:  #ToDo: The errors need parsing properly
+                raise NoSuchTableError(full_view_name) from e
 
     def _get_column_type(self, column_type):
         pattern = r'(?:Nullable)*(?:\()*(\w+)(?:\((.*?)\))?(?:\))*'

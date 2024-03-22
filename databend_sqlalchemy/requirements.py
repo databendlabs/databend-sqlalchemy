@@ -176,3 +176,13 @@ class Requirements(SuiteRequirements):
 
         """
         return exclusions.closed()  # I couldn't get the test for this one working, maybe when the driver returns a python decimal?
+
+    @property
+    def array_type(self):
+        return exclusions.closed()
+
+    @property
+    def float_is_numeric(self):
+        """target backend uses Numeric for Float/Dual"""
+
+        return exclusions.closed()
