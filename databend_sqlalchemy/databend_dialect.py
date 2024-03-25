@@ -235,6 +235,12 @@ class DatabendExecutionContext(default.DefaultExecutionContext):
     def should_autocommit(self):
         return False  # No DML supported, never autocommit
 
+    def create_server_side_cursor(self):
+        return self._dbapi_connection.cursor()
+
+    def create_default_cursor(self):
+        return self._dbapi_connection.cursor()
+
 
 class DatabendTypeCompiler(compiler.GenericTypeCompiler):
     def visit_ARRAY(self, type_, **kw):
@@ -290,6 +296,7 @@ class DatabendDialect(default.DefaultDialect):
     supports_is_distinct_from = False
 
     supports_statement_cache = False
+    supports_server_side_cursors = True
 
     max_identifier_length = 127
     default_paramstyle = "pyformat"
@@ -319,6 +326,10 @@ class DatabendDialect(default.DefaultDialect):
 
     @classmethod
     def dbapi(cls):
+        return cls.import_dbapi()
+
+    @classmethod
+    def import_dbapi(cls):
         try:
             import databend_sqlalchemy.connector as connector
         except Exception:
@@ -348,6 +359,9 @@ class DatabendDialect(default.DefaultDialect):
             kwargs["dsn"] = kwargs["dsn"] + "?" + k + "=" + v
 
         return ([], kwargs)
+
+    def create_server_side_cursor(self):
+        return self.create_default_cursor()
 
     def _get_default_schema_name(self, connection):
         return connection.scalar(text("SELECT currentDatabase()"))

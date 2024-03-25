@@ -15,6 +15,7 @@ from sqlalchemy.testing.suite import LongNameBlowoutTest as _LongNameBlowoutTest
 from sqlalchemy.testing.suite import QuotedNameArgumentTest as _QuotedNameArgumentTest
 from sqlalchemy.testing.suite import JoinTest as _JoinTest
 from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
+from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursorsTest
 from sqlalchemy import types as sql_types
 from sqlalchemy import testing, select
 from sqlalchemy.testing import config, eq_
@@ -41,6 +42,10 @@ class BooleanTest(_BooleanTest):
     __backend__ = True
 
     def test_whereclause(self):
+        """
+        This is overridden from Ancestor implementation because Databend does not support `WHERE NOT true|false`
+        Please compare this version with the overridden test
+        """
         # testing "WHERE <column>" renders a compatible expression
         boolean_table = self.tables.boolean_table
 
@@ -67,21 +72,6 @@ class BooleanTest(_BooleanTest):
                 ),
                 1,
             )
-            # Databend does not support `WHERE NOT true|false`
-            # eq_(
-            #     conn.scalar(
-            #         select(boolean_table.c.id).where(~boolean_table.c.value)
-            #     ),
-            #     2,
-            # )
-            # eq_(
-            #     conn.scalar(
-            #         select(boolean_table.c.id).where(
-            #             ~boolean_table.c.unconstrained_value
-            #         )
-            #     ),
-            #     2,
-            # )
 
 
 class CompoundSelectTest(_CompoundSelectTest):
@@ -180,6 +170,7 @@ class QuotedNameArgumentTest(_QuotedNameArgumentTest):
             ("quote ' one",),
             ('quote " two', testing.requires.symbol_names_w_double_quote),
         )(fn)
+
     @quote_fixtures
     @testing.skip("databend")
     def test_get_pk_constraint(self, name):
@@ -218,4 +209,71 @@ class BinaryTest(_BinaryTest):
 
     @testing.skip("databend")
     def test_pickle_roundtrip(self):
+        pass
+
+
+class ServerSideCursorsTest(_ServerSideCursorsTest):
+
+    def _is_server_side(self, cursor):
+        # ToDo - requires implementation of `stream_results` option, so True always for now
+        if self.engine.dialect.driver == "databend":
+            return True
+        return super()
+
+    # ToDo - The commented out testing combinations here should be reviewed when `stream_results` is implemented
+    @testing.combinations(
+        ("global_string", True, "select 1", True),
+        ("global_text", True, text("select 1"), True),
+        ("global_expr", True, select(1), True),
+        # ("global_off_explicit", False, text("select 1"), False),
+        (
+            "stmt_option",
+            False,
+            select(1).execution_options(stream_results=True),
+            True,
+        ),
+        # (
+        #     "stmt_option_disabled",
+        #     True,
+        #     select(1).execution_options(stream_results=False),
+        #     False,
+        # ),
+        ("for_update_expr", True, select(1).with_for_update(), True),
+        # TODO: need a real requirement for this, or dont use this test
+        # (
+        #     "for_update_string",
+        #     True,
+        #     "SELECT 1 FOR UPDATE",
+        #     True,
+        #     testing.skip_if(["sqlite", "mssql"]),
+        # ),
+        # ("text_no_ss", False, text("select 42"), False),
+        (
+            "text_ss_option",
+            False,
+            text("select 42").execution_options(stream_results=True),
+            True,
+        ),
+        id_="iaaa",
+        argnames="engine_ss_arg, statement, cursor_ss_status",
+    )
+    def test_ss_cursor_status(
+        self, engine_ss_arg, statement, cursor_ss_status
+    ):
+        super()
+
+    @testing.skip("databend")  # ToDo - requires implementation of `stream_results` option
+    def test_stmt_enabled_conn_option_disabled(self):
+        pass
+
+    @testing.skip("databend")  # ToDo - requires implementation of `stream_results` option
+    def test_aliases_and_ss(self):
+        pass
+
+    @testing.skip("databend")  # Skipped because requires auto increment primary key
+    def test_roundtrip_fetchall(self):
+        pass
+
+    @testing.skip("databend")  # Skipped because requires auto increment primary key
+    def test_roundtrip_fetchmany(self):
         pass
