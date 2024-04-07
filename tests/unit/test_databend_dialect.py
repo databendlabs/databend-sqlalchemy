@@ -13,6 +13,8 @@ from databend_sqlalchemy.databend_dialect import (
     DatabendDialect,
     DatabendIdentifierPreparer,
     DatabendTypeCompiler,
+    INTEGER, BOOLEAN, BINARY,
+    DatabendDate
 )
 from databend_sqlalchemy.databend_dialect import dialect as dialect_definition
 
@@ -60,18 +62,43 @@ class TestDatabendDialect:
         assert result == ["table1", "table2"]
         connection.execute.assert_called_once()
         assert str(connection.execute.call_args[0][0].compile()) == str(
-            text("select table_name from information_schema.tables").compile()
+            text("""
+            select table_name
+            from information_schema.tables
+            where table_schema = :schema_name
+            and engine NOT LIKE '%VIEW%'
+            """).compile()
         )
+        assert connection.execute.call_args[0][1] == {'schema_name': None}
         connection.execute.reset_mock()
+        # Test default schema
+        dialect.default_schema_name = 'some-schema'
+        result = dialect.get_table_names(connection)
+        assert result == ["table1", "table2"]
+        connection.execute.assert_called_once()
+        assert str(connection.execute.call_args[0][0].compile()) == str(
+            text("""
+            select table_name
+            from information_schema.tables
+            where table_schema = :schema_name
+            and engine NOT LIKE '%VIEW%'
+            """).compile()
+        )
+        assert connection.execute.call_args[0][1] == {'schema_name': 'some-schema'}
+        connection.execute.reset_mock()
+        # Test specified schema
         result = dialect.get_table_names(connection, schema="schema")
         assert result == ["table1", "table2"]
         connection.execute.assert_called_once()
         assert str(connection.execute.call_args[0][0].compile()) == str(
-            text(
-                "select table_name from information_schema.tables"
-                " where table_schema = 'schema'"
-            ).compile()
+            text("""
+            select table_name
+            from information_schema.tables
+            where table_schema = :schema_name
+            and engine NOT LIKE '%VIEW%'
+            """).compile()
         )
+        assert connection.execute.call_args[0][1] == {'schema_name': 'schema'}
 
     def test_view_names(
             self, dialect: DatabendDialect, connection: mock.Mock(spec=MockDBApi)
@@ -103,42 +130,46 @@ class TestDatabendDialect:
         ]
 
         expected_query = """
-            select column_name, data_type, is_nullable
+            select column_name, column_type, is_nullable
             from information_schema.columns
-            where table_name = 'table'
-        """
+            where table_name = :table_name
+            and table_schema = :schema_name
+            """
 
-        expected_query_schema = expected_query + " and table_schema = 'schema'"
 
-        for call, expected_query in (
-                (lambda: dialect.get_columns(connection, "table"), expected_query),
+        for call, expected_params in (
                 (
-                        lambda: dialect.get_columns(connection, "table", "schema"),
-                        expected_query_schema,
+                    lambda: dialect.get_columns(connection, "table"),
+                    {'table_name': 'table', 'schema_name': None},
+                ),
+                (
+                    lambda: dialect.get_columns(connection, "table", "schema"),
+                    {'table_name': 'table', 'schema_name': 'schema'},
                 ),
         ):
-            assert call() == [
+            result = call()
+            assert result == [
                 {
                     "name": "name1",
-                    "type": sqlalchemy.types.INTEGER,
+                    "type": INTEGER,
                     "nullable": True,
                     "default": None,
                 },
                 {
                     "name": "name2",
-                    "type": sqlalchemy.types.DATE,
+                    "type": DatabendDate,
                     "nullable": False,
                     "default": None,
                 },
                 {
                     "name": "name3",
-                    "type": sqlalchemy.types.BOOLEAN,
+                    "type": BOOLEAN,
                     "nullable": True,
                     "default": None,
                 },
                 {
                     "name": "name4",
-                    "type": sqlalchemy.types.BINARY,
+                    "type": BINARY,
                     "nullable": True,
                     "default": None,
                 },
@@ -147,6 +178,7 @@ class TestDatabendDialect:
             assert str(connection.execute.call_args[0][0].compile()) == str(
                 text(expected_query).compile()
             )
+            assert connection.execute.call_args[0][1] == expected_params
             connection.execute.reset_mock()
 
 
@@ -157,10 +189,10 @@ def test_get_is_nullable():
 
 def test_types():
     assert databend_sqlalchemy.databend_dialect.CHAR is sqlalchemy.sql.sqltypes.CHAR
-    assert databend_sqlalchemy.databend_dialect.DATE is sqlalchemy.sql.sqltypes.DATE
-    assert (
-            databend_sqlalchemy.databend_dialect.DATETIME
-            is sqlalchemy.sql.sqltypes.DATETIME
+    assert issubclass(databend_sqlalchemy.databend_dialect.DatabendDate, sqlalchemy.sql.sqltypes.DATE)
+    assert issubclass(
+            databend_sqlalchemy.databend_dialect.DatabendDateTime,
+            sqlalchemy.sql.sqltypes.DATETIME,
     )
     assert (
             databend_sqlalchemy.databend_dialect.INTEGER is sqlalchemy.sql.sqltypes.INTEGER

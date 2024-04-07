@@ -4,8 +4,8 @@ unittest:
 integration:
 	python -m pytest -s tests/integration
 
-sampletest:
-	python databend_sqlalchemy/test.py
+testsuite:
+    python -m pytest -n4
 
 install:
 	pip install -e ".[dev]"

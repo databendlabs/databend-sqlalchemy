@@ -2,40 +2,31 @@
 #
 # Note: parts of the file come from https://github.com/snowflakedb/snowflake-sqlalchemy
 #       licensed under the same Apache 2.0 License
-
+import decimal
 import re
-import sqlalchemy.types
-import sqlalchemy.util
+import datetime
 import sqlalchemy.types as sqltypes
-from types import ModuleType
-from typing import Any, Dict, List, Optional, Tuple, Union
-from sqlalchemy import exc as sa_exc
+from typing import Any, Dict, Optional, Union
 from sqlalchemy import util as sa_util
-from sqlalchemy.engine import default, reflection
-from sqlalchemy.sql import compiler, expression, text
-from sqlalchemy.sql.elements import quoted_name
+from sqlalchemy.engine import reflection
+from sqlalchemy.sql import compiler, text, bindparam
 from sqlalchemy.dialects.postgresql.base import PGCompiler, PGIdentifierPreparer
 from sqlalchemy.types import (
-    CHAR,
-    DATE,
-    DATETIME,
+    BIGINT,
     INTEGER,
     SMALLINT,
-    BIGINT,
     DECIMAL,
-    TIME,
-    TIMESTAMP,
+    NUMERIC,
     VARCHAR,
     BINARY,
     BOOLEAN,
     FLOAT,
-    REAL,
     JSON,
+    CHAR,
+    TIMESTAMP,
 )
 from sqlalchemy.engine import ExecutionContext, default
-
-# Column spec
-colspecs = {}
+from sqlalchemy.exc import DBAPIError, NoSuchTableError
 
 
 # Type decorators
@@ -52,20 +43,83 @@ class MAP(sqltypes.TypeEngine):
         super(MAP, self).__init__()
 
 
+class DatabendDate(sqltypes.DATE):
+    __visit_name__ = "DATE"
+
+    _reg = re.compile(r"(\d+)-(\d+)-(\d+)")
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if isinstance(value, str):
+                m = self._reg.match(value)
+                if not m:
+                    raise ValueError(
+                        "could not parse %r as a date value" % (value,)
+                    )
+                return datetime.date(*[int(x or 0) for x in m.groups()])
+            else:
+                return value
+
+        return process
+
+
+class DatabendDateTime(sqltypes.DATETIME):
+    __visit_name__ = "DATETIME"
+
+    _reg = re.compile(r"(\d+)-(\d+)-(\d+) (\d+):(\d+):(\d+)")
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if isinstance(value, str):
+                m = self._reg.match(value)
+                if not m:
+                    raise ValueError(
+                        "could not parse %r as a datetime value" % (value,)
+                    )
+                return datetime.datetime(*[int(x or 0) for x in m.groups()])
+            else:
+                return value
+
+        return process
+
+
+class DatabendNumeric(sqltypes.Numeric):
+    def result_processor(self, dialect, type_):
+
+        orig = super().result_processor(dialect, type_)
+
+        def process(value):
+            if value is not None:
+                if self.decimal_return_scale:
+                    value = decimal.Decimal(f'{value:.{self.decimal_return_scale}f}')
+                else:
+                    value = decimal.Decimal(value)
+            if orig:
+                return orig(value)
+            return value
+
+        return process
+
+
 # Type converters
 ischema_names = {
+    "bigint": BIGINT,
     "int": INTEGER,
-    "int64": INTEGER,
+    "smallint": SMALLINT,
+    "tinyint": SMALLINT,
+    "int64": BIGINT,
     "int32": INTEGER,
-    "int16": INTEGER,
-    "int8": INTEGER,
-    "uint64": INTEGER,
+    "int16": SMALLINT,
+    "int8": SMALLINT,
+    "uint64": BIGINT,
     "uint32": INTEGER,
-    "uint16": INTEGER,
-    "uint8": INTEGER,
+    "uint16": SMALLINT,
+    "uint8": SMALLINT,
+    "numeric": NUMERIC,
     "decimal": DECIMAL,
-    "date": DATE,
-    "timestamp": DATETIME,
+    "date": DatabendDate,
+    "datetime": DatabendDateTime,
+    "timestamp": DatabendDateTime,
     "float": FLOAT,
     "double": FLOAT,
     "float64": FLOAT,
@@ -79,19 +133,24 @@ ischema_names = {
     "binary": BINARY,
 }
 
+# Column spec
+colspecs = {
+    sqltypes.Date: DatabendDate,
+    sqltypes.DateTime: DatabendDateTime,
+    sqltypes.DECIMAL: DatabendNumeric,
+    sqltypes.Numeric: DatabendNumeric,
+}
+
 
 class DatabendIdentifierPreparer(PGIdentifierPreparer):
-    def quote_identifier(self, value):
-        """Never quote identifiers."""
-        return self._escape_identifier(value)
-
-    def quote(self, ident, force=None):
-        if self._requires_quotes(ident):
-            return '"{}"'.format(ident)
-        return ident
+    pass
 
 
 class DatabendCompiler(PGCompiler):
+    def get_select_precolumns(self, select, **kw):
+        # call the base implementation because Databend doesn't support DISTINCT ON
+        return super(PGCompiler, self).get_select_precolumns(select, **kw)
+
     def visit_count_func(self, fn, **kw):
         return "count{0}".format(self.process(fn.clause_expr, **kw))
 
@@ -103,12 +162,6 @@ class DatabendCompiler(PGCompiler):
 
     def visit_current_date_func(self, fn, **kw):
         return "today()"
-
-    def visit_true(self, element, **kw):
-        return "1"
-
-    def visit_false(self, element, **kw):
-        return "0"
 
     def visit_cast(self, cast, **kwargs):
         if self.dialect.supports_cast:
@@ -131,28 +184,6 @@ class DatabendCompiler(PGCompiler):
             self.process(binary.right),
         )
 
-    def visit_in_op_binary(self, binary, operator, **kw):
-        kw["literal_binds"] = True
-        return "%s IN %s" % (
-            self.process(binary.left, **kw),
-            self.process(binary.right, **kw),
-        )
-
-    def visit_notin_op_binary(self, binary, operator, **kw):
-        kw["literal_binds"] = True
-        return "%s NOT IN %s" % (
-            self.process(binary.left, **kw),
-            self.process(binary.right, **kw),
-        )
-
-    def visit_column(
-            self, column, add_to_result_map=None, include_table=True, **kwargs
-    ):
-        # Columns prefixed with table name are not supported
-        return super(DatabendCompiler, self).visit_column(
-            column, add_to_result_map=add_to_result_map, include_table=False, **kwargs
-        )
-
     def render_literal_value(self, value, type_):
         value = super(DatabendCompiler, self).render_literal_value(value, type_)
         if isinstance(type_, sqltypes.DateTime):
@@ -164,18 +195,39 @@ class DatabendCompiler(PGCompiler):
     def limit_clause(self, select, **kw):
         text = ""
         if select._limit_clause is not None:
-            text += "\n LIMIT " + self.process(select._limit_clause, **kw)
+            text += " \n LIMIT " + self.process(select._limit_clause, **kw)
         if select._offset_clause is not None:
-            text = "\n LIMIT "
             if select._limit_clause is None:
-                text += self.process(sql.literal(-1))
-            else:
-                text += "0"
-            text += "," + self.process(select._offset_clause, **kw)
+                text += "\n"
+            text += " OFFSET " + self.process(select._offset_clause, **kw)
         return text
 
     def for_update_clause(self, select, **kw):
         return ""  # Not supported
+
+    def visit_like_op_binary(self, binary, operator, **kw):
+        # escape = binary.modifiers.get("escape", None)
+        return "%s LIKE %s" % (
+            binary.left._compiler_dispatch(self, **kw),
+            binary.right._compiler_dispatch(self, **kw),
+        # ToDo - escape not yet supported
+        # ) + (
+        #     " ESCAPE " + self.render_literal_value(escape, sqltypes.STRINGTYPE)
+        #     if escape
+        #     else ""
+        )
+
+    def visit_not_like_op_binary(self, binary, operator, **kw):
+        # escape = binary.modifiers.get("escape", None)
+        return "%s NOT LIKE %s" % (
+            binary.left._compiler_dispatch(self, **kw),
+            binary.right._compiler_dispatch(self, **kw),
+        # ToDo - escape not yet supported
+        # ) + (
+        #     " ESCAPE " + self.render_literal_value(escape, sqltypes.STRINGTYPE)
+        #     if escape
+        #     else ""
+        )
 
 
 class DatabendExecutionContext(default.DefaultExecutionContext):
@@ -183,13 +235,49 @@ class DatabendExecutionContext(default.DefaultExecutionContext):
     def should_autocommit(self):
         return False  # No DML supported, never autocommit
 
+    def create_server_side_cursor(self):
+        return self._dbapi_connection.cursor()
+
+    def create_default_cursor(self):
+        return self._dbapi_connection.cursor()
+
 
 class DatabendTypeCompiler(compiler.GenericTypeCompiler):
-    def visit_ARRAY(self, type, **kw):
-        return "Array(%s)" % type
+    def visit_ARRAY(self, type_, **kw):
+        return "Array(%s)" % type_
 
-    def Visit_MAP(self, type, **kw):
-        return "Map(%s)" % type
+    def Visit_MAP(self, type_, **kw):
+        return "Map(%s)" % type_
+
+    def visit_NUMERIC(self, type_, **kw):
+        if type_.precision is None:
+            return self.visit_DECIMAL(sqltypes.DECIMAL(38, 10), **kw)
+        if type_.scale is None:
+            return self.visit_DECIMAL(sqltypes.DECIMAL(38, 10), **kw)
+        return self.visit_DECIMAL(type_, **kw)
+
+    def visit_NVARCHAR(self, type_, **kw):
+        return self.visit_VARCHAR(type_, **kw)
+
+
+class DatabendDDLCompiler(compiler.DDLCompiler):
+
+    def visit_primary_key_constraint(self, constraint, **kw):
+        return ""
+
+    def visit_foreign_key_constraint(self, constraint, **kw):
+        return ""
+
+    def create_table_constraints(
+        self, table, _include_foreign_key_constraints=None, **kw
+    ):
+        return ""
+
+    def visit_create_index(self, create, include_schema=False, include_table_schema=True, **kw):
+        return ""
+
+    def visit_drop_index(self, drop, **kw):
+        return ""
 
 
 class DatabendDialect(default.DefaultDialect):
@@ -201,7 +289,14 @@ class DatabendDialect(default.DefaultDialect):
     supports_sane_rowcount = False
     supports_sane_multi_rowcount = False
     supports_native_boolean = True
+    supports_native_decimal = True
     supports_alter = True
+    supports_comments = False
+    supports_empty_insert = False
+    supports_is_distinct_from = False
+
+    supports_statement_cache = False
+    supports_server_side_cursors = True
 
     max_identifier_length = 127
     default_paramstyle = "pyformat"
@@ -209,12 +304,15 @@ class DatabendDialect(default.DefaultDialect):
     ischema_names = ischema_names
     convert_unicode = True
     returns_unicode_strings = True
+    returns_native_bytes = True
+    div_is_floordiv = False
     description_encoding = None
     postfetch_lastrowid = False
 
     preparer = DatabendIdentifierPreparer
     type_compiler = DatabendTypeCompiler
     statement_compiler = DatabendCompiler
+    ddl_compiler = DatabendDDLCompiler
     execution_ctx_cls = DatabendExecutionContext
 
     # Required for PG-based compiler
@@ -228,14 +326,24 @@ class DatabendDialect(default.DefaultDialect):
 
     @classmethod
     def dbapi(cls):
+        return cls.import_dbapi()
+
+    @classmethod
+    def import_dbapi(cls):
         try:
             import databend_sqlalchemy.connector as connector
         except Exception:
             import connector
         return connector
 
-    def initialize(self, connection):
-        pass
+    def _get_server_version_info(self, connection):
+        val = connection.scalar(text("SELECT VERSION()"))
+        m = re.match(r"(?:.*)v(\d+).(\d+).(\d+)-([^\(]+)(?:\()", val)
+        if not m:
+            raise AssertionError(
+                "Could not determine version from string '%s'" % val
+            )
+        return tuple(int(x) for x in m.group(1, 2, 3) if x is not None)
 
     def connect(self, *cargs, **cparams):
         # inherits the docstring from interfaces.Dialect.connect
@@ -252,57 +360,106 @@ class DatabendDialect(default.DefaultDialect):
 
         return ([], kwargs)
 
+    def create_server_side_cursor(self):
+        return self.create_default_cursor()
+
     def _get_default_schema_name(self, connection):
-        return connection.scalar(text("select currentDatabase()"))
+        return connection.scalar(text("SELECT currentDatabase()"))
 
+    @reflection.cache
     def get_schema_names(self, connection, **kw):
-        return [row[0] for row in connection.execute("SHOW DATABASES")]
-
-    def get_view_names(self, connection, schema=None, **kw):
-        return self.get_table_names(connection, schema, **kw)
+        return [row[0] for row in connection.execute(text("SHOW DATABASES"))]
 
     def _get_table_columns(self, connection, table_name, schema):
-        full_table = table_name
-        if schema:
-            full_table = schema + "." + table_name
-        # This needs the table name to be unescaped (no backticks).
-        return connection.execute(text("DESC {}".format(full_table))).fetchall()
+        if schema is None:
+            schema = self.default_schema_name
+        quote_table_name = self.identifier_preparer.quote_identifier(table_name)
+        quote_schema = self.identifier_preparer.quote_identifier(schema)
 
+        return connection.execute(text(f"DESC {quote_schema}.{quote_table_name}")).fetchall()
+
+    @reflection.cache
     def has_table(self, connection, table_name, schema=None, **kw):
-        full_table = table_name
-        if schema:
-            full_table = schema + "." + table_name
-        for r in connection.execute(text("EXISTS TABLE {}".format(full_table))):
-            if r[0] == 1:
-                return True
+        if schema is None:
+            schema = self.default_schema_name
+        quote_table_name = self.identifier_preparer.quote_identifier(table_name)
+        quote_schema = self.identifier_preparer.quote_identifier(schema)
+        query = f"""EXISTS TABLE {quote_schema}.{quote_table_name}"""
+        r = connection.scalar(text(query))
+        if r == 1:
+            return True
         return False
 
     @reflection.cache
     def get_columns(self, connection, table_name, schema=None, **kw):
-        query = """
-            select column_name, data_type, is_nullable
+        query = text(
+            """
+            select column_name, column_type, is_nullable
             from information_schema.columns
-            where table_name = '{table_name}'
-        """.format(
-            table_name=table_name
+            where table_name = :table_name
+            and table_schema = :schema_name
+            """
+        ).bindparams(
+            bindparam("table_name", type_=sqltypes.UnicodeText),
+            bindparam("schema_name", type_=sqltypes.Unicode)
         )
+        if schema is None:
+            schema = self.default_schema_name
+        result = connection.execute(query, dict(table_name=table_name, schema_name=schema))
 
-        if schema:
-            query = "{query} and table_schema = '{schema}'".format(
-                query=query, schema=schema
-            )
-
-        result = connection.execute(text(query))
-
-        return [
+        cols = [
             {
                 "name": row[0],
-                "type": ischema_names[extract_nullable_string(row[1]).lower()],
+                "type": self._get_column_type(row[1]),
                 "nullable": get_is_nullable(row[2]),
                 "default": None,
             }
             for row in result
         ]
+        if not cols and not self.has_table(connection, table_name, schema):
+            raise NoSuchTableError(table_name)
+        return cols
+
+    @reflection.cache
+    def get_view_definition(self, connection, view_name, schema=None, **kw):
+        if schema is None:
+            schema = self.default_schema_name
+        quote_schema = self.identifier_preparer.quote_identifier(schema)
+        quote_view_name = self.identifier_preparer.quote_identifier(view_name)
+        full_view_name = f"{quote_schema}.{quote_view_name}"
+
+        # ToDo : perhaps can be removed if we get `SHOW CREATE VIEW`
+        if view_name not in self.get_view_names(connection, schema):
+            raise NoSuchTableError(full_view_name)
+
+        query = f"""SHOW CREATE TABLE {full_view_name}"""
+        try:
+            view_def = connection.execute(text(query)).first()
+            return view_def[1]
+        except DBAPIError as e:
+            if '1025' in e.orig.message:  #ToDo: The errors need parsing properly
+                raise NoSuchTableError(full_view_name) from e
+
+    def _get_column_type(self, column_type):
+        pattern = r'(?:Nullable)*(?:\()*(\w+)(?:\((.*?)\))?(?:\))*'
+        match = re.match(pattern, column_type)
+        if match:
+            type_str = match.group(1).lower()
+            charlen = match.group(2)
+            args = ()
+            kwargs = {}
+            if type_str == 'decimal':
+                if charlen:
+                    # e.g.'18, 5'
+                    prec, scale = charlen.split(", ")
+                    args = (int(prec), int(scale))
+            elif charlen:
+                args = (int(charlen),)
+
+            coltype = self.ischema_names[type_str]
+            return coltype(*args, **kwargs)
+        else:
+            return None
 
     @reflection.cache
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
@@ -318,15 +475,39 @@ class DatabendDialect(default.DefaultDialect):
     def get_indexes(self, connection, table_name, schema=None, **kw):
         return []
 
-    # @reflection.cache
+    @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):
-        query = "select table_name from information_schema.tables"
-        if schema:
-            query = "{query} where table_schema = '{schema}'".format(
-                query=query, schema=schema
-            )
+        query = text("""
+            select table_name
+            from information_schema.tables
+            where table_schema = :schema_name
+            and engine NOT LIKE '%VIEW%'
+            """
+        ).bindparams(
+            bindparam("schema_name", type_=sqltypes.Unicode)
+        )
+        if schema is None:
+            schema = self.default_schema_name
 
-        result = connection.execute(text(query))
+        result = connection.execute(query, dict(schema_name=schema))
+        return [row[0] for row in result]
+
+    @reflection.cache
+    def get_view_names(self, connection, schema=None, **kw):
+        query = text(
+            """
+            select table_name
+            from information_schema.tables
+            where table_schema = :schema_name
+            and engine LIKE '%VIEW%'
+            """
+        ).bindparams(
+            bindparam("schema_name", type_=sqltypes.Unicode)
+        )
+        if schema is None:
+            schema = self.default_schema_name
+
+        result = connection.execute(query, dict(schema_name=schema))
         return [row[0] for row in result]
 
     def do_rollback(self, dbapi_connection):
