@@ -284,8 +284,6 @@ class DatabendDialect(default.DefaultDialect):
     name = "databend"
     driver = "databend"
     supports_cast = True
-    supports_unicode_statements = True
-    supports_unicode_binds = True
     supports_sane_rowcount = False
     supports_sane_multi_rowcount = False
     supports_native_boolean = True
@@ -302,8 +300,6 @@ class DatabendDialect(default.DefaultDialect):
     default_paramstyle = "pyformat"
     colspecs = colspecs
     ischema_names = ischema_names
-    convert_unicode = True
-    returns_unicode_strings = True
     returns_native_bytes = True
     div_is_floordiv = False
     description_encoding = None
