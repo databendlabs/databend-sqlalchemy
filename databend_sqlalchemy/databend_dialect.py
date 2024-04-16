@@ -259,6 +259,9 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
     def visit_NVARCHAR(self, type_, **kw):
         return self.visit_VARCHAR(type_, **kw)
 
+    def visit_JSON(self, type_, **kw):
+        return "JSON"  # or VARIANT
+
 
 class DatabendDDLCompiler(compiler.DDLCompiler):
 
@@ -315,10 +318,16 @@ class DatabendDialect(default.DefaultDialect):
     _backslash_escapes = True
 
     def __init__(
-            self, context: Optional[ExecutionContext] = None, *args: Any, **kwargs: Any
+            self,
+            context: Optional[ExecutionContext] = None,
+            json_serializer=None,
+            json_deserializer=None,
+            *args: Any, **kwargs: Any
     ):
         super(DatabendDialect, self).__init__(*args, **kwargs)
         self.context: Union[ExecutionContext, Dict] = context or {}
+        self._json_serializer = json_serializer
+        self._json_deserializer = json_deserializer
 
     @classmethod
     def dbapi(cls):
