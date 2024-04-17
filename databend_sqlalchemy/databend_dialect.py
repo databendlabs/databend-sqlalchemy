@@ -295,6 +295,7 @@ class DatabendDialect(default.DefaultDialect):
     supports_comments = False
     supports_empty_insert = False
     supports_is_distinct_from = False
+    supports_multivalues_insert = True
 
     supports_statement_cache = False
     supports_server_side_cursors = True
