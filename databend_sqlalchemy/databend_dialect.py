@@ -283,6 +283,11 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
     def visit_drop_index(self, drop, **kw):
         return ""
 
+    def visit_drop_schema(self, drop, **kw):
+        # Override - Databend does not support the CASCADE option
+        schema = self.preparer.format_schema(drop.element)
+        return "DROP SCHEMA " + schema
+
 
 class DatabendDialect(default.DefaultDialect):
     name = "databend"
