@@ -128,6 +128,7 @@ ischema_names = {
     "array": ARRAY,
     "map": MAP,
     "json": JSON,
+    "variant": JSON,
     "varchar": VARCHAR,
     "boolean": BOOLEAN,
     "binary": BINARY,
