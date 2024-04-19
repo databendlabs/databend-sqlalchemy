@@ -175,7 +175,7 @@ class Requirements(SuiteRequirements):
         least seven decimal places when using the generic Float type.
 
         """
-        return exclusions.closed()  # I couldn't get the test for this one working, maybe when the driver returns a python decimal?
+        return exclusions.closed()  #ToDo - I couldn't get the test for this one working, not sure where the issue is - AssertionError: {Decimal('15.7563829')} != {Decimal('15.7563827')}
 
     @property
     def array_type(self):
@@ -186,3 +186,9 @@ class Requirements(SuiteRequirements):
         """target backend uses Numeric for Float/Dual"""
 
         return exclusions.closed()
+
+    @property
+    def json_type(self):
+        """target platform implements a native JSON type."""
+
+        return exclusions.closed()  #ToDo - This could be enabled if primary keys were supported

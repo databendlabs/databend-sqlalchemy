@@ -128,6 +128,7 @@ ischema_names = {
     "array": ARRAY,
     "map": MAP,
     "json": JSON,
+    "variant": JSON,
     "varchar": VARCHAR,
     "boolean": BOOLEAN,
     "binary": BINARY,
@@ -259,6 +260,9 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
     def visit_NVARCHAR(self, type_, **kw):
         return self.visit_VARCHAR(type_, **kw)
 
+    def visit_JSON(self, type_, **kw):
+        return "JSON"  # or VARIANT
+
 
 class DatabendDDLCompiler(compiler.DDLCompiler):
 
@@ -279,13 +283,16 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
     def visit_drop_index(self, drop, **kw):
         return ""
 
+    def visit_drop_schema(self, drop, **kw):
+        # Override - Databend does not support the CASCADE option
+        schema = self.preparer.format_schema(drop.element)
+        return "DROP SCHEMA " + schema
+
 
 class DatabendDialect(default.DefaultDialect):
     name = "databend"
     driver = "databend"
     supports_cast = True
-    supports_unicode_statements = True
-    supports_unicode_binds = True
     supports_sane_rowcount = False
     supports_sane_multi_rowcount = False
     supports_native_boolean = True
@@ -294,6 +301,7 @@ class DatabendDialect(default.DefaultDialect):
     supports_comments = False
     supports_empty_insert = False
     supports_is_distinct_from = False
+    supports_multivalues_insert = True
 
     supports_statement_cache = False
     supports_server_side_cursors = True
@@ -302,8 +310,6 @@ class DatabendDialect(default.DefaultDialect):
     default_paramstyle = "pyformat"
     colspecs = colspecs
     ischema_names = ischema_names
-    convert_unicode = True
-    returns_unicode_strings = True
     returns_native_bytes = True
     div_is_floordiv = False
     description_encoding = None
@@ -319,10 +325,16 @@ class DatabendDialect(default.DefaultDialect):
     _backslash_escapes = True
 
     def __init__(
-            self, context: Optional[ExecutionContext] = None, *args: Any, **kwargs: Any
+            self,
+            context: Optional[ExecutionContext] = None,
+            json_serializer=None,
+            json_deserializer=None,
+            *args: Any, **kwargs: Any
     ):
         super(DatabendDialect, self).__init__(*args, **kwargs)
         self.context: Union[ExecutionContext, Dict] = context or {}
+        self._json_serializer = json_serializer
+        self._json_deserializer = json_deserializer
 
     @classmethod
     def dbapi(cls):

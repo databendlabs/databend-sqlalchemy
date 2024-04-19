@@ -165,10 +165,15 @@ class Cursor:
     def close(self):
         self._reset_state()
 
+    def mogrify(self, query, parameters):
+        if parameters:
+            query = query % _escaper.escape_args(parameters)
+        return query
+
     def execute(self, operation, parameters=None, is_response=True):
         """Prepare and execute a database operation (query or command)."""
 
-        #ToDo - Fix this, which is preventing the execution of blank DDL sunch as CREATE INDEX statements which aren't suppoorted
+        #ToDo - Fix this, which is preventing the execution of blank DDL sunch as CREATE INDEX statements which aren't currently supported
         # Seems hard to fix when statements are coming from metadata.create_all()
         if operation == "":
             return
@@ -179,11 +184,7 @@ class Cursor:
         self._uuid = uuid.uuid1()
 
         try:
-            # operation = operation.replace('%%', '%')
-            if parameters:
-                query = operation % _escaper.escape_args(parameters)
-            else:
-                query = operation
+            query = self.mogrify(operation, parameters)
             query = query.replace('%%', '%')
             if is_response:
                 rows = self._db.query_iter(query)
