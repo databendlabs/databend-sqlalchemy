@@ -40,3 +40,32 @@ Compatibility
 
 - If databend version >= v0.9.0 or later, you need to use databend-sqlalchemy version >= v0.1.0.
 - The databend-sqlalchemy use [databend-py](https://github.com/datafuselabs/databend-py) as internal driver when version < v0.4.0, but when version >= v0.4.0 it use [databend driver python binding](https://github.com/datafuselabs/bendsql/blob/main/bindings/python/README.md) as internal driver. The only difference between the two is that the connection parameters provided in the DSN are different. When using the corresponding version, you should refer to the connection parameters provided by the corresponding Driver.
+
+
+Merge Command Support
+---------------------
+
+Databend SQLAlchemy supports upserts via its `Merge` custom expression.
+See [Merge](https://docs.databend.com/sql/sql-commands/dml/dml-merge) for full documentation.
+
+The Merge command can be used as below::
+
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy import MetaData, create_engine
+        from databend_sqlalchemy.databend_dialect import Merge
+
+        engine = create_engine(db.url, echo=False)
+        session = sessionmaker(bind=engine)()
+        connection = engine.connect()
+
+        meta = MetaData()
+        meta.reflect(bind=session.bind)
+        t1 = meta.tables['t1']
+        t2 = meta.tables['t2']
+
+        merge = Merge(target=t1, source=t2, on=t1.c.t1key == t2.c.t2key)
+        merge.when_matched_then_delete().where(t2.c.marked == 1)
+        merge.when_matched_then_update().where(t2.c.isnewstatus == 1).values(val = t2.c.newval, status=t2.c.newstatus)
+        merge.when_matched_then_update().values(val=t2.c.newval)
+        merge.when_not_matched_then_insert().values(val=t2.c.newval, status=t2.c.newstatus)
+        connection.execute(merge)
