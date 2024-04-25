@@ -273,7 +273,7 @@ class DatabendCompiler(PGCompiler):
         set_values = (
             ", ".join(
                 [
-                    f"{set_item[0]} = {set_item[1]._compiler_dispatch(self, **kw)}"
+                    f"{self.preparer.quote_identifier(set_item[0])} = {set_item[1]._compiler_dispatch(self, **kw)}"
                     for set_item in set_list
                 ]
             )
