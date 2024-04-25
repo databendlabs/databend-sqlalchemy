@@ -234,7 +234,7 @@ class DatabendCompiler(PGCompiler):
 
 
     def visit_merge(self, merge, **kw):
-        clauses = "\n".join(
+        clauses = "\n ".join(
             clause._compiler_dispatch(self, **kw)
             for clause in merge.clauses
         )
@@ -246,10 +246,11 @@ class DatabendCompiler(PGCompiler):
         elif isinstance(merge.source, Subquery):
             source = merge.source._compiler_dispatch(self, **source_kw)
 
+        target_table = self.preparer.format_table(merge.target)
         return (
-            f"MERGE INTO {merge.target}\n"
-            f"USING {source}\n"
-            f"ON {merge.on}\n"
+            f"MERGE INTO {target_table}\n"
+            f" USING {source}\n"
+            f" ON {merge.on}\n"
             f"{clauses if clauses else ''}"
         )
 
