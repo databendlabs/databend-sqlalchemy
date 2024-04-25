@@ -10,7 +10,7 @@ import sqlalchemy.types as sqltypes
 from typing import Any, Dict, Optional, Union
 from sqlalchemy import util as sa_util
 from sqlalchemy.engine import reflection
-from sqlalchemy.sql import compiler, text, bindparam, select
+from sqlalchemy.sql import compiler, text, bindparam, select, TableClause, Select, Subquery
 from sqlalchemy.dialects.postgresql.base import PGCompiler, PGIdentifierPreparer
 from sqlalchemy.types import (
     BIGINT,
@@ -238,9 +238,17 @@ class DatabendCompiler(PGCompiler):
             clause._compiler_dispatch(self, **kw)
             for clause in merge.clauses
         )
+        source_kw = {'asfrom': True}
+        if isinstance(merge.source, TableClause):
+            source = select(merge.source).subquery().alias(merge.source.name)._compiler_dispatch(self, **source_kw)
+        elif isinstance(merge.source, Select):
+            source = merge.source.subquery().alias(merge.source.get_final_froms()[0].name)._compiler_dispatch(self, **source_kw)
+        elif isinstance(merge.source, Subquery):
+            source = merge.source._compiler_dispatch(self, **source_kw)
+
         return (
             f"MERGE INTO {merge.target}\n"
-            f"USING ({select(merge.source)}) AS {merge.source.name}\n"
+            f"USING {source}\n"
             f"ON {merge.on}\n"
             f"{clauses if clauses else ''}"
         )

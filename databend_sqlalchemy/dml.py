@@ -3,6 +3,7 @@
 # Note: parts of the file come from https://github.com/snowflakedb/snowflake-sqlalchemy
 #       licensed under the same Apache 2.0 License
 
+from sqlalchemy.sql.selectable import Select, Subquery, TableClause
 from sqlalchemy.sql.dml import UpdateBase
 from sqlalchemy.sql.elements import ClauseElement
 from sqlalchemy.sql.expression import select
@@ -70,6 +71,8 @@ class Merge(UpdateBase):
     _bind = None
 
     def __init__(self, target, source, on):
+        if not isinstance(source, (TableClause, Select, Subquery)):
+            raise Exception(f'Invalid type for merge source: {source}')
         self.target = target
         self.source = source
         self.on = on
@@ -77,7 +80,6 @@ class Merge(UpdateBase):
 
     def __repr__(self):
         clauses = " ".join([repr(clause) for clause in self.clauses])
-
         return f"MERGE INTO {self.target} USING ({select(self.source)}) AS {self.source.name} ON {self.on}" + (
             f" {clauses}" if clauses else ""
         )
