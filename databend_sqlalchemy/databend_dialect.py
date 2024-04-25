@@ -569,12 +569,17 @@ class DatabendDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):
-        query = text("""
+        table_name_query = """
             select table_name
             from information_schema.tables
             where table_schema = :schema_name
+            """
+        if self.server_version_info <= (1, 2, 410):
+            table_name_query += """
             and engine NOT LIKE '%VIEW%'
             """
+        query = text(
+            table_name_query
         ).bindparams(
             bindparam("schema_name", type_=sqltypes.Unicode)
         )
@@ -586,13 +591,20 @@ class DatabendDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_view_names(self, connection, schema=None, **kw):
-        query = text(
+        view_name_query = """
+            select table_name
+            from information_schema.views
+            where table_schema = :schema_name
             """
+        if self.server_version_info <= (1, 2, 410):
+            view_name_query = """
             select table_name
             from information_schema.tables
             where table_schema = :schema_name
             and engine LIKE '%VIEW%'
             """
+        query = text(
+            view_name_query
         ).bindparams(
             bindparam("schema_name", type_=sqltypes.Unicode)
         )
