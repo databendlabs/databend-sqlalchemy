@@ -192,3 +192,8 @@ class Requirements(SuiteRequirements):
         """target platform implements a native JSON type."""
 
         return exclusions.closed()  #ToDo - This could be enabled if primary keys were supported
+
+    @property
+    def reflect_table_options(self):
+        """Target database must support reflecting table_options."""
+        return exclusions.open()
