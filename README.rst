@@ -33,15 +33,6 @@ The DSN format is similar to that of regular Postgres::
             print(i)
 
 
-
-
-Compatibility
----------------
-
-- If databend version >= v0.9.0 or later, you need to use databend-sqlalchemy version >= v0.1.0.
-- The databend-sqlalchemy use [databend-py](https://github.com/datafuselabs/databend-py) as internal driver when version < v0.4.0, but when version >= v0.4.0 it use [databend driver python binding](https://github.com/datafuselabs/bendsql/blob/main/bindings/python/README.md) as internal driver. The only difference between the two is that the connection parameters provided in the DSN are different. When using the corresponding version, you should refer to the connection parameters provided by the corresponding Driver.
-
-
 Merge Command Support
 ---------------------
 
@@ -69,3 +60,11 @@ The Merge command can be used as below::
         merge.when_matched_then_update().values(val=t2.c.newval)
         merge.when_not_matched_then_insert().values(val=t2.c.newval, status=t2.c.newstatus)
         connection.execute(merge)
+
+
+Compatibility
+---------------
+
+- If databend version >= v0.9.0 or later, you need to use databend-sqlalchemy version >= v0.1.0.
+- The databend-sqlalchemy use [databend-py](https://github.com/datafuselabs/databend-py) as internal driver when version < v0.4.0, but when version >= v0.4.0 it use [databend driver python binding](https://github.com/datafuselabs/bendsql/blob/main/bindings/python/README.md) as internal driver. The only difference between the two is that the connection parameters provided in the DSN are different. When using the corresponding version, you should refer to the connection parameters provided by the corresponding Driver.
+
