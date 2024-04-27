@@ -4,12 +4,13 @@
 #       licensed under the same Apache 2.0 License
 import decimal
 import re
+import operator
 import datetime
 import sqlalchemy.types as sqltypes
 from typing import Any, Dict, Optional, Union
 from sqlalchemy import util as sa_util
 from sqlalchemy.engine import reflection
-from sqlalchemy.sql import compiler, text, bindparam
+from sqlalchemy.sql import compiler, text, bindparam, select, TableClause, Select, Subquery
 from sqlalchemy.dialects.postgresql.base import PGCompiler, PGIdentifierPreparer
 from sqlalchemy.types import (
     BIGINT,
@@ -27,6 +28,7 @@ from sqlalchemy.types import (
 )
 from sqlalchemy.engine import ExecutionContext, default
 from sqlalchemy.exc import DBAPIError, NoSuchTableError
+from .dml import Merge
 
 
 # Type decorators
@@ -231,6 +233,85 @@ class DatabendCompiler(PGCompiler):
         )
 
 
+    def visit_merge(self, merge, **kw):
+        clauses = "\n ".join(
+            clause._compiler_dispatch(self, **kw)
+            for clause in merge.clauses
+        )
+        source_kw = {'asfrom': True}
+        if isinstance(merge.source, TableClause):
+            source = select(merge.source).subquery().alias(merge.source.name)._compiler_dispatch(self, **source_kw)
+        elif isinstance(merge.source, Select):
+            source = merge.source.subquery().alias(merge.source.get_final_froms()[0].name)._compiler_dispatch(self, **source_kw)
+        elif isinstance(merge.source, Subquery):
+            source = merge.source._compiler_dispatch(self, **source_kw)
+
+        target_table = self.preparer.format_table(merge.target)
+        return (
+            f"MERGE INTO {target_table}\n"
+            f" USING {source}\n"
+            f" ON {merge.on}\n"
+            f"{clauses if clauses else ''}"
+        )
+
+    def visit_when_merge_matched_update(self, merge_matched_update, **kw):
+        case_predicate = (
+            f" AND {str(merge_matched_update.predicate._compiler_dispatch(self, **kw))}"
+            if merge_matched_update.predicate is not None
+            else ""
+        )
+        update_str = (
+            f"WHEN MATCHED{case_predicate} THEN\n"
+            f"\tUPDATE"
+        )
+        if not merge_matched_update.set:
+            return f"{update_str} *"
+
+        set_list = list(merge_matched_update.set.items())
+        if kw.get("deterministic", False):
+            set_list.sort(key=operator.itemgetter(0))
+        set_values = (
+            ", ".join(
+                [
+                    f"{self.preparer.quote_identifier(set_item[0])} = {set_item[1]._compiler_dispatch(self, **kw)}"
+                    for set_item in set_list
+                ]
+            )
+        )
+        return f"{update_str} SET {str(set_values)}"
+
+    def visit_when_merge_matched_delete(self, merge_matched_delete, **kw):
+        case_predicate = (
+            f" AND {str(merge_matched_delete.predicate._compiler_dispatch(self, **kw))}"
+            if merge_matched_delete.predicate is not None
+            else ""
+        )
+        return f"WHEN MATCHED{case_predicate} THEN DELETE"
+
+    def visit_when_merge_unmatched(self, merge_unmatched, **kw):
+        case_predicate = (
+            f" AND {str(merge_unmatched.predicate._compiler_dispatch(self, **kw))}"
+            if merge_unmatched.predicate is not None
+            else ""
+        )
+        insert_str = (
+            f"WHEN NOT MATCHED{case_predicate} THEN\n"
+            f"\tINSERT"
+        )
+        if not merge_unmatched.set:
+            return f"{insert_str} *"
+
+        set_cols, sets_vals = zip(*merge_unmatched.set.items())
+        set_cols, sets_vals = list(set_cols), list(sets_vals)
+        if kw.get("deterministic", False):
+            set_cols, sets_vals = zip(
+                *sorted(merge_unmatched.set.items(), key=operator.itemgetter(0))
+            )
+        return "{} ({}) VALUES ({})".format(
+            insert_str,
+            ", ".join(set_cols),
+            ", ".join(map(lambda e: e._compiler_dispatch(self, **kw), sets_vals)),
+        )
 class DatabendExecutionContext(default.DefaultExecutionContext):
     @sa_util.memoized_property
     def should_autocommit(self):
@@ -489,12 +570,17 @@ class DatabendDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_table_names(self, connection, schema=None, **kw):
-        query = text("""
+        table_name_query = """
             select table_name
             from information_schema.tables
             where table_schema = :schema_name
+            """
+        if self.server_version_info <= (1, 2, 410):
+            table_name_query += """
             and engine NOT LIKE '%VIEW%'
             """
+        query = text(
+            table_name_query
         ).bindparams(
             bindparam("schema_name", type_=sqltypes.Unicode)
         )
@@ -506,13 +592,20 @@ class DatabendDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_view_names(self, connection, schema=None, **kw):
-        query = text(
+        view_name_query = """
+            select table_name
+            from information_schema.views
+            where table_schema = :schema_name
             """
+        if self.server_version_info <= (1, 2, 410):
+            view_name_query = """
             select table_name
             from information_schema.tables
             where table_schema = :schema_name
             and engine LIKE '%VIEW%'
             """
+        query = text(
+            view_name_query
         ).bindparams(
             bindparam("schema_name", type_=sqltypes.Unicode)
         )
