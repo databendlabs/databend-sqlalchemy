@@ -2,6 +2,28 @@
 #
 # Note: parts of the file come from https://github.com/snowflakedb/snowflake-sqlalchemy
 #       licensed under the same Apache 2.0 License
+
+"""
+Databend Table Options
+------------------------
+
+Several options for CREATE TABLE are supported directly by the Databend
+dialect in conjunction with the :class:`_schema.Table` construct:
+
+* ``ENGINE``::
+
+    Table("some_table", metadata, ..., databend_engine=FUSE|Memory|Random|Iceberg|Delta)
+
+* ``CLUSTER KEY``::
+
+    Table("some_table", metadata, ..., databend_cluster_by=str|LIST(expr|str))
+
+* ``TRANSIENT``::
+
+    Table("some_table", metadata, ..., databend_transient=True|False)
+
+"""
+
 import decimal
 import re
 import operator
@@ -369,6 +391,45 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
         schema = self.preparer.format_schema(drop.element)
         return "DROP SCHEMA " + schema
 
+    def visit_create_table(self, create, **kw):
+        table = create.element
+        db_opts = table.dialect_options["databend"]
+        if "transient" in db_opts and db_opts["transient"]:
+            if "transient" not in [p.lower() for p in table._prefixes]:
+                table._prefixes.append("TRANSIENT")
+        return super().visit_create_table(create, **kw)
+
+    def post_create_table(self, table):
+        table_opts = []
+        db_opts = table.dialect_options["databend"]
+
+        engine = db_opts.get("engine")
+        if engine is not None:
+            table_opts.append(f" ENGINE={engine}")
+
+        cluster_keys = db_opts.get("cluster_by")
+        if cluster_keys is not None:
+            if isinstance(cluster_keys, str):
+                cluster_by = cluster_keys
+            elif isinstance(cluster_keys, list):
+                cluster_by = ", ".join(
+                    self.sql_compiler.process(
+                        expr if not isinstance(expr, str) else table.c[expr],
+                        include_table=False,
+                        literal_binds=True,
+                    )
+                    for expr in cluster_keys
+                )
+            else:
+                cluster_by = ''
+            table_opts.append(
+                f"\n CLUSTER BY ( {cluster_by} )"
+            )
+
+        #ToDo - Engine options
+
+        return " ".join(table_opts)
+
 
 class DatabendDialect(default.DefaultDialect):
     name = "databend"
@@ -614,6 +675,51 @@ class DatabendDialect(default.DefaultDialect):
 
         result = connection.execute(query, dict(schema_name=schema))
         return [row[0] for row in result]
+
+    @reflection.cache
+    def get_table_options(self, connection, table_name, schema=None, **kw):
+        options = {}
+
+        # transient??
+        # engine: str
+        # cluster_by: list[expr]
+        # engine_options: dict
+
+        # engine_regex = r'ENGINE=(\w+)'
+        # cluster_key_regex = r'CLUSTER BY \((.*)\)'
+
+        query = text(
+            """
+            SELECT engine_full, cluster_by, is_transient
+            FROM system.tables
+            WHERE database = :schema_name
+            and name = :table_name
+            """
+        ).bindparams(
+            bindparam("table_name", type_=sqltypes.Unicode),
+            bindparam("schema_name", type_=sqltypes.Unicode)
+        )
+        if schema is None:
+            schema = self.default_schema_name
+
+        result = connection.execute(query, dict(table_name=table_name, schema_name=schema)).one_or_none()
+        if not result:
+            raise NoSuchTableError(
+                f'{self.identifier_preparer.quote_identifier(schema)}.'
+                f'{self.identifier_preparer.quote_identifier(table_name)}'
+            )
+
+        if result.engine_full:
+            options["databend_engine"] = result.engine_full
+        if result.cluster_by:
+            cluster_by = re.match(r'\((.*)\)', result.cluster_by).group(1)
+            options["databend_cluster_by"] = cluster_by
+        if result.is_transient:
+            options["databend_is_transient"] = result.is_transient
+
+        # engine options
+
+        return options
 
     def do_rollback(self, dbapi_connection):
         # No transactions
