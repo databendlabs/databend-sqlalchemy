@@ -69,3 +69,52 @@ The Merge command can be used as below::
         merge.when_matched_then_update().values(val=t2.c.newval)
         merge.when_not_matched_then_insert().values(val=t2.c.newval, status=t2.c.newstatus)
         connection.execute(merge)
+
+Table Options
+---------------------
+
+Databend SQLAlchemy supports databend specific table options for Engine, Cluster Keys and Transient tables
+
+The table options can be used as below::
+
+        from sqlalchemy import Table, Column
+        from sqlalchemy import MetaData, create_engine
+
+        engine = create_engine(db.url, echo=False)
+
+        meta = MetaData()
+        # Example of Transient Table
+        t_transient = Table(
+            "t_transient",
+            meta,
+            Column("c1", Integer),
+            databend_transient=True,
+        )
+
+        # Example of Engine
+        t_engine = Table(
+            "t_engine",
+            meta,
+            Column("c1", Integer),
+            databend_engine='Memory',
+        )
+
+        # Examples of Table with Cluster Keys
+        t_cluster_1 = Table(
+            "t_cluster_1",
+            meta,
+            Column("c1", Integer),
+            databend_cluster_by=[c1],
+        )
+        #
+        c = Column("id", Integer)
+        c2 = Column("Name", String)
+        t_cluster_2 = Table(
+            't_cluster_2',
+            meta,
+            c,
+            c2,
+            databend_cluster_by=[cast(c, String), c2],
+        )
+
+        meta.create_all(engine)
