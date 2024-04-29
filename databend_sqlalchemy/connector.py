@@ -276,9 +276,12 @@ class Cursor(object):
         as :py:meth:`fetchone`. A ``StopIteration`` exception is raised when the result set is
         exhausted.
         """
-        return self.fetchone()
+        if not self._rows:
+            raise StopIteration()
+        n = self._rows.__next__()
+        return n.values()
 
-    next = __next__
+    next = fetchone
 
     def __iter__(self):
         """Return self to make cursors compatible to the iteration protocol."""
