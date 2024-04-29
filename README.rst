@@ -29,8 +29,8 @@ The DSN format is similar to that of regular Postgres::
         cursor.execute('SELECT * FROM test')
         # print(cursor.fetchone())
         # print(cursor.fetchall())
-        for i in cursor.next():
-            print(i)
+        for row in cursor:
+            print(row)
 
 
 Merge Command Support
