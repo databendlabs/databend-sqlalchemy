@@ -107,8 +107,8 @@ class DatabendDateTime(sqltypes.DATETIME):
         return process
 
 
-class DatabendTime(sqltypes.Time):
-    __visit_name__ = "DATETIME"
+class DatabendTime(sqltypes.TIME):
+    __visit_name__ = "TIME"
 
     _reg = re.compile(r"(?:\d+)-(?:\d+)-(?:\d+) (\d+):(\d+):(\d+)")
 
