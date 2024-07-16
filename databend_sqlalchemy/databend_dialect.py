@@ -719,6 +719,13 @@ class DatabendDialect(default.DefaultDialect):
             FROM system.tables
             WHERE database = :schema_name
             and name = :table_name
+
+            UNION
+
+            SELECT engine_full, NULL as cluster_by, NULL as is_transient
+            FROM system.views
+            WHERE database = :schema_name
+            and name = :table_name
             """
         ).bindparams(
             bindparam("table_name", type_=sqltypes.Unicode),
