@@ -138,7 +138,7 @@ class Requirements(SuiteRequirements):
         """target dialect supports representation of Python
         datetime.time() objects."""
 
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def time_microseconds(self):

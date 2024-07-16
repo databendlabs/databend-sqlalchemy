@@ -107,6 +107,26 @@ class DatabendDateTime(sqltypes.DATETIME):
         return process
 
 
+class DatabendTime(sqltypes.Time):
+    __visit_name__ = "DATETIME"
+
+    _reg = re.compile(r"(?:\d+)-(?:\d+)-(?:\d+) (\d+):(\d+):(\d+)")
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if isinstance(value, str):
+                m = self._reg.match(value)
+                if not m:
+                    raise ValueError(
+                        "could not parse %r as a datetime value" % (value,)
+                    )
+                return datetime.time(*[int(x or 0) for x in m.groups()])
+            else:
+                return value
+
+        return process
+
+
 class DatabendNumeric(sqltypes.Numeric):
     def result_processor(self, dialect, type_):
 
@@ -156,10 +176,12 @@ ischema_names = {
     "varchar": VARCHAR,
     "boolean": BOOLEAN,
     "binary": BINARY,
+    "time": DatabendTime,
 }
 
 # Column spec
 colspecs = {
+    sqltypes.Time: DatabendTime,
     sqltypes.Date: DatabendDate,
     sqltypes.DateTime: DatabendDateTime,
     sqltypes.DECIMAL: DatabendNumeric,
@@ -365,6 +387,9 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
 
     def visit_JSON(self, type_, **kw):
         return "JSON"  # or VARIANT
+
+    def visit_TIME(self, type_, **kw):
+        return "DATETIME"
 
 
 class DatabendDDLCompiler(compiler.DDLCompiler):
