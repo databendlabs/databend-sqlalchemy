@@ -106,6 +106,14 @@ class DatabendDateTime(sqltypes.DATETIME):
 
         return process
 
+    def literal_processor(self, dialect):
+        def process(value):
+            if value is not None:
+                datetime_str = value.isoformat(" ", timespec="microseconds")
+                return f"'{datetime_str}'"
+
+        return process
+
 
 class DatabendTime(sqltypes.TIME):
     __visit_name__ = "TIME"
@@ -126,6 +134,15 @@ class DatabendTime(sqltypes.TIME):
 
         return process
 
+    def literal_processor(self, dialect):
+        def process(value):
+            if value is not None:
+                epoch_value = datetime.datetime.combine(datetime.date(1970, 1, 1), value)
+                time_str = epoch_value.isoformat(timespec="microseconds")
+                return f"'{time_str}'"
+
+        return process
+
 
 class DatabendNumeric(sqltypes.Numeric):
     def result_processor(self, dialect, type_):
@@ -141,6 +158,18 @@ class DatabendNumeric(sqltypes.Numeric):
             if orig:
                 return orig(value)
             return value
+
+        return process
+
+
+class DatabendInterval(sqltypes.Interval):
+    """Stores interval as a datetime relative to epoch, see base implementation."""
+    def literal_processor(self, dialect):
+        def process(value):
+            if value is not None:
+                d = datetime.datetime(1970, 1, 1) + value
+                interval_str = d.isoformat(" ", timespec="microseconds")
+                return f"'{interval_str}'"
 
         return process
 
@@ -177,10 +206,12 @@ ischema_names = {
     "boolean": BOOLEAN,
     "binary": BINARY,
     "time": DatabendTime,
+    "interval": DatabendInterval,
 }
 
 # Column spec
 colspecs = {
+    sqltypes.Interval: DatabendInterval,
     sqltypes.Time: DatabendTime,
     sqltypes.Date: DatabendDate,
     sqltypes.DateTime: DatabendDateTime,
@@ -233,10 +264,12 @@ class DatabendCompiler(PGCompiler):
 
     def render_literal_value(self, value, type_):
         value = super(DatabendCompiler, self).render_literal_value(value, type_)
-        if isinstance(type_, sqltypes.DateTime):
-            value = "toDateTime(%s)" % value
-        if isinstance(type_, sqltypes.Date):
-            value = "toDate(%s)" % value
+        # if isinstance(type_, sqltypes.DateTime):
+        #     return "to_datetime(%s)" % value
+        # if isinstance(type_, sqltypes.Date):
+        #     return "to_date(%s)" % value
+        # if isinstance(type_, sqltypes.Time):
+        #     return "to_datetime(%s)" % value
         return value
 
     def limit_clause(self, select, **kw):
