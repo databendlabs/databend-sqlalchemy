@@ -148,6 +148,13 @@ class Requirements(SuiteRequirements):
         return exclusions.closed()
 
     @property
+    def datetime_interval(self):
+        """target dialect supports representation of Python
+        datetime.timedelta()."""
+
+        return exclusions.open()
+
+    @property
     def autoincrement_insert(self):
         """target platform generates new surrogate integer primary key values
         when insert() is executed, excluding the pk column."""

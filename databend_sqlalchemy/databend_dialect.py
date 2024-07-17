@@ -122,6 +122,8 @@ class DatabendTime(sqltypes.TIME):
 
     def result_processor(self, dialect, coltype):
         def process(value):
+            if value is None:
+                return None
             if isinstance(value, str):
                 m = self._reg.match(value)
                 if not m:
@@ -130,15 +132,15 @@ class DatabendTime(sqltypes.TIME):
                     )
                 return datetime.time(*[int(x or 0) for x in m.groups()])
             else:
-                return value
+                return value.time()
 
         return process
 
     def literal_processor(self, dialect):
         def process(value):
             if value is not None:
-                epoch_value = datetime.datetime.combine(datetime.date(1970, 1, 1), value)
-                time_str = epoch_value.isoformat(timespec="microseconds")
+                from_min_value = datetime.datetime.combine(datetime.date(1000, 1, 1), value)
+                time_str = from_min_value.isoformat(timespec="microseconds")
                 return f"'{time_str}'"
 
         return process
@@ -164,10 +166,38 @@ class DatabendNumeric(sqltypes.Numeric):
 
 class DatabendInterval(sqltypes.Interval):
     """Stores interval as a datetime relative to epoch, see base implementation."""
+
+    _reg = re.compile(r"(\d+)-(\d+)-(\d+) (\d+):(\d+):(\d+)")
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value is None:
+                return None
+            if isinstance(value, str):
+                m = self._reg.match(value)
+                if not m:
+                    raise ValueError(
+                        "could not parse %r as a datetime value" % (value,)
+                    )
+                groups = m.groups()
+                dt = datetime.datetime(*[
+                    int(groups[0] or self.epoch.year),
+                    int(groups[1] or self.epoch.month),
+                    int(groups[2] or self.epoch.day),
+                    int(groups[3] or 0),
+                    int(groups[4] or 0),
+                    int(groups[5] or 0),
+                ])
+            else:
+                dt = value
+            return dt - self.epoch
+
+        return process
+
     def literal_processor(self, dialect):
         def process(value):
             if value is not None:
-                d = datetime.datetime(1970, 1, 1) + value
+                d = self.epoch + value
                 interval_str = d.isoformat(" ", timespec="microseconds")
                 return f"'{interval_str}'"
 
@@ -269,6 +299,8 @@ class DatabendCompiler(PGCompiler):
         # if isinstance(type_, sqltypes.Date):
         #     return "to_date(%s)" % value
         # if isinstance(type_, sqltypes.Time):
+        #     return "to_datetime(%s)" % value
+        # if isinstance(type_, sqltypes.Interval):
         #     return "to_datetime(%s)" % value
         return value
 
@@ -389,6 +421,8 @@ class DatabendCompiler(PGCompiler):
             ", ".join(set_cols),
             ", ".join(map(lambda e: e._compiler_dispatch(self, **kw), sets_vals)),
         )
+
+
 class DatabendExecutionContext(default.DefaultExecutionContext):
     @sa_util.memoized_property
     def should_autocommit(self):
