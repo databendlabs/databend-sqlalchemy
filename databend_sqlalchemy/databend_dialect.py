@@ -795,9 +795,6 @@ class DatabendDialect(default.DefaultDialect):
             select table_name
             from information_schema.tables
             where table_schema = :schema_name
-            """
-        if self.server_version_info <= (1, 2, 410):
-            table_name_query += """
             and engine NOT LIKE '%VIEW%'
             """
         query = text(
@@ -815,16 +812,18 @@ class DatabendDialect(default.DefaultDialect):
     def get_view_names(self, connection, schema=None, **kw):
         view_name_query = """
             select table_name
-            from information_schema.views
-            where table_schema = :schema_name
-            """
-        if self.server_version_info <= (1, 2, 410):
-            view_name_query = """
-            select table_name
             from information_schema.tables
             where table_schema = :schema_name
             and engine LIKE '%VIEW%'
-            """
+        """
+        # This handles bug that existed a while, views were not included in information_schema.tables
+        # https://github.com/datafuselabs/databend/issues/16039
+        if self.server_version_info > (1, 2, 410) and self.server_version_info <= (1, 2, 566):
+            view_name_query = """
+                select table_name
+                from information_schema.views
+                where table_schema = :schema_name
+                """
         query = text(
             view_name_query
         ).bindparams(
