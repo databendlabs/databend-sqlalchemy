@@ -138,7 +138,7 @@ class Requirements(SuiteRequirements):
         """target dialect supports representation of Python
         datetime.time() objects."""
 
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def time_microseconds(self):
@@ -146,6 +146,13 @@ class Requirements(SuiteRequirements):
         datetime.time() with microsecond objects."""
 
         return exclusions.closed()
+
+    @property
+    def datetime_interval(self):
+        """target dialect supports representation of Python
+        datetime.timedelta()."""
+
+        return exclusions.open()
 
     @property
     def autoincrement_insert(self):

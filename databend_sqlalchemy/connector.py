@@ -6,7 +6,7 @@
 import decimal
 import re
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date, time, timedelta
 from databend_sqlalchemy.errors import Error, ServerException, NotSupportedError
 
 from databend_driver import BlockingDatabendClient
@@ -48,7 +48,7 @@ class ParamEscaper:
             return self.escape_number(item)
         elif isinstance(item, decimal.Decimal):
             return self.escape_number(item)
-        elif isinstance(item, (datetime, date)):
+        elif isinstance(item, (datetime, date, time, timedelta)):
             return self.escape_string(item.strftime("%Y-%m-%d %H:%M:%S"))
         else:
             return self.escape_string(item)

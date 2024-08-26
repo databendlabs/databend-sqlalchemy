@@ -16,9 +16,12 @@ from sqlalchemy.testing.suite import QuotedNameArgumentTest as _QuotedNameArgume
 from sqlalchemy.testing.suite import JoinTest as _JoinTest
 from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
 from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursorsTest
+from sqlalchemy.testing.suite import IntervalTest as _IntervalTest
+from sqlalchemy.testing.suite import PrecisionIntervalTest as _PrecisionIntervalTest
 from sqlalchemy import types as sql_types
 from sqlalchemy import testing, select
 from sqlalchemy.testing import config, eq_
+from databend_sqlalchemy.databend_dialect import DatabendInterval
 
 
 class ComponentReflectionTest(_ComponentReflectionTest):
@@ -276,4 +279,46 @@ class ServerSideCursorsTest(_ServerSideCursorsTest):
 
     @testing.skip("databend")  # Skipped because requires auto increment primary key
     def test_roundtrip_fetchmany(self):
+        pass
+
+
+class IntervalTest(_IntervalTest):
+    __backend__ = True
+    datatype = DatabendInterval
+
+    @testing.skip("databend")  # Skipped because cannot figure out the literal() part
+    def test_arithmetic_operation_literal_interval(self, connection):
+        pass
+
+    @testing.skip("databend")  # Skipped because cannot figure out the literal() part
+    def test_arithmetic_operation_table_interval_and_literal_interval(
+        self, connection, arithmetic_table_fixture
+    ):
+        pass
+
+    @testing.skip("databend")  # Skipped because cannot figure out the literal() part
+    def test_arithmetic_operation_table_date_and_literal_interval(
+        self, connection, arithmetic_table_fixture
+    ):
+        pass
+
+
+class PrecisionIntervalTest(_PrecisionIntervalTest):
+    __backend__ = True
+    datatype = DatabendInterval
+
+    @testing.skip("databend")  # Skipped because cannot figure out the literal() part
+    def test_arithmetic_operation_literal_interval(self, connection):
+        pass
+
+    @testing.skip("databend")  # Skipped because cannot figure out the literal() part
+    def test_arithmetic_operation_table_interval_and_literal_interval(
+        self, connection, arithmetic_table_fixture
+    ):
+        pass
+
+    @testing.skip("databend")  # Skipped because cannot figure out the literal() part
+    def test_arithmetic_operation_table_date_and_literal_interval(
+        self, connection, arithmetic_table_fixture
+    ):
         pass
