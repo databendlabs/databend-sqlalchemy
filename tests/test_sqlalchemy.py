@@ -3,7 +3,6 @@
 from sqlalchemy.testing.suite import *
 
 from sqlalchemy.testing.suite import ComponentReflectionTestExtra as _ComponentReflectionTestExtra
-from sqlalchemy.testing.suite import ComponentReflectionTest as _ComponentReflectionTest
 from sqlalchemy.testing.suite import DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest
 from sqlalchemy.testing.suite import BooleanTest as _BooleanTest
 from sqlalchemy.testing.suite import BinaryTest as _BinaryTest
@@ -22,12 +21,6 @@ from sqlalchemy import types as sql_types
 from sqlalchemy import testing, select
 from sqlalchemy.testing import config, eq_
 from databend_sqlalchemy.databend_dialect import DatabendInterval
-
-
-class ComponentReflectionTest(_ComponentReflectionTest):
-    @testing.requires.index_reflection
-    def test_get_indexes(self):
-        pass
 
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
