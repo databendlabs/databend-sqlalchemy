@@ -18,6 +18,7 @@ from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _Bizarr
 from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursorsTest
 from sqlalchemy.testing.suite import IntervalTest as _IntervalTest
 from sqlalchemy.testing.suite import PrecisionIntervalTest as _PrecisionIntervalTest
+from sqlalchemy.testing.suite import EnumTest as _EnumTest
 from sqlalchemy import types as sql_types
 from sqlalchemy import testing, select
 from sqlalchemy.testing import config, eq_
@@ -321,4 +322,11 @@ class PrecisionIntervalTest(_PrecisionIntervalTest):
     def test_arithmetic_operation_table_date_and_literal_interval(
         self, connection, arithmetic_table_fixture
     ):
+        pass
+
+class EnumTest(_EnumTest):
+    __backend__ = True
+
+    @testing.skip("databend")  # Skipped because no supporting enums yet
+    def test_round_trip_executemany(self, connection):
         pass

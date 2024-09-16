@@ -846,21 +846,34 @@ class DatabendDialect(default.DefaultDialect):
 
         # engine_regex = r'ENGINE=(\w+)'
         # cluster_key_regex = r'CLUSTER BY \((.*)\)'
-
-        query = text(
+        query_text = (
             """
             SELECT engine_full, cluster_by, is_transient
             FROM system.tables
             WHERE database = :schema_name
             and name = :table_name
-
-            UNION
-
-            SELECT engine_full, NULL as cluster_by, NULL as is_transient
-            FROM system.views
-            WHERE database = :schema_name
-            and name = :table_name
             """
+        )
+        # This handles bug that existed a while
+        # https://github.com/datafuselabs/databend/pull/16149
+        if self.server_version_info > (1, 2, 410) and self.server_version_info <= (1, 2, 604):
+            query_text = (
+                """
+                SELECT engine_full, cluster_by, is_transient
+                FROM system.tables
+                WHERE database = :schema_name
+                and name = :table_name
+
+                UNION
+
+                SELECT engine_full, NULL as cluster_by, NULL as is_transient
+                FROM system.views
+                WHERE database = :schema_name
+                and name = :table_name
+                """
+            )
+        query = text(
+            query_text
         ).bindparams(
             bindparam("table_name", type_=sqltypes.Unicode),
             bindparam("schema_name", type_=sqltypes.Unicode)
