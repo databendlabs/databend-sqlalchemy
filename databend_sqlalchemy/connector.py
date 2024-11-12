@@ -38,7 +38,7 @@ class ParamEscaper:
         if isinstance(item, bytes):
             item = item.decode("utf-8")
         return "'{}'".format(
-            item.replace("\\", "\\\\").replace("'", "\\'").replace("$", "$$").replace("%", "%%")
+            item.replace("\\", "\\\\").replace("'", "\\'").replace("%", "%%")
         )
 
     def escape_item(self, item):
