@@ -54,70 +54,70 @@ from .dml import Merge
 
 RESERVED_WORDS = {
     'Error', 'EOI', 'Whitespace', 'Comment', 'CommentBlock', 'Ident', 'ColumnPosition', 'LiteralString',
-     'LiteralCodeString', 'LiteralAtString', 'PGLiteralHex', 'MySQLLiteralHex', 'LiteralInteger', 'LiteralFloat',
-     'HintPrefix', 'HintSuffix', 'DoubleEq', 'Eq', 'NotEq', 'Lt', 'Gt', 'Lte', 'Gte', 'Spaceship', 'Plus',
-     'Minus', 'Multiply', 'Divide', 'IntDiv', 'Modulo', 'StringConcat', 'LParen', 'RParen', 'Comma', 'Dot',
-     'Colon', 'DoubleColon', 'ColonEqual', 'SemiColon', 'Backslash', 'LBracket', 'RBracket', 'Caret', 'LBrace',
-     'RBrace', 'RArrow', 'LongRArrow', 'FatRArrow', 'HashRArrow', 'HashLongRArrow', 'TildeAsterisk',
-     'ExclamationMarkTilde', 'ExclamationMarkTildeAsterisk', 'BitWiseAnd', 'BitWiseOr', 'BitWiseXor',
-     'BitWiseNot', 'ShiftLeft', 'ShiftRight', 'Factorial', 'DoubleExclamationMark', 'Abs', 'SquareRoot',
-     'CubeRoot', 'Placeholder', 'QuestionOr', 'QuestionAnd', 'ArrowAt', 'AtArrow', 'AtQuestion', 'AtAt',
-     'HashMinus', 'ACCOUNT', 'ALL', 'ALLOWED_IP_LIST', 'ADD', 'AFTER', 'AGGREGATING', 'ANY', 'APPEND_ONLY',
-     'ARGS', 'AUTO', 'SOME', 'ALTER', 'ALWAYS', 'ANALYZE', 'AND', 'ARRAY', 'AS', 'AST', 'AT', 'ASC',
-     'ANTI', 'ASYNC', 'ATTACH', 'BEFORE', 'BETWEEN', 'BIGINT', 'BINARY', 'BREAK', 'LONGBLOB', 'MEDIUMBLOB',
-     'TINYBLOB', 'BLOB', 'BINARY_FORMAT', 'BITMAP', 'BLOCKED_IP_LIST', 'BOOL', 'BOOLEAN', 'BOTH', 'BY',
-     'BROTLI', 'BZ2', 'CALL', 'CASE', 'CAST', 'CATALOG', 'CATALOGS', 'CENTURY', 'CHANGES', 'CLUSTER',
-     'COMMENT', 'COMMENTS', 'COMPACT', 'CONNECTION', 'CONNECTIONS', 'CONSUME', 'CONTENT_TYPE', 'CONTINUE',
-     'CHAR', 'COLUMN', 'COLUMNS', 'CHARACTER', 'CONFLICT', 'COMPRESSION', 'COPY_OPTIONS', 'COPY', 'COUNT',
-     'CREDENTIAL', 'CREATE', 'CROSS', 'CSV', 'CURRENT', 'CURRENT_TIMESTAMP', 'DATABASE', 'DATABASES', 'DATA',
-     'DATE', 'DATE_ADD', 'DATE_PART', 'DATE_SUB', 'DATE_TRUNC', 'DATETIME', 'DAY', 'DECADE', 'DECIMAL',
-     'DECLARE', 'DEFAULT', 'DEFLATE', 'DELETE', 'DESC', 'DETAILED_OUTPUT', 'DESCRIBE', 'DISABLE',
-     'DISABLE_VARIANT_CHECK', 'DISTINCT', 'RESPECT', 'IGNORE', 'DIV', 'DOUBLE_SHA1_PASSWORD', 'DO', 'DOUBLE',
-     'DOW', 'WEEK', 'DELTA', 'DOY', 'DOWNLOAD', 'DOWNSTREAM', 'DROP', 'DRY', 'DYNAMIC', 'EXCEPT', 'EXCLUDE',
-     'ELSE', 'EMPTY_FIELD_AS', 'ENABLE', 'ENABLE_VIRTUAL_HOST_STYLE', 'END', 'ENDPOINT', 'ENGINE', 'ENGINES',
-     'EPOCH', 'ERROR_ON_COLUMN_COUNT_MISMATCH', 'ESCAPE', 'EXCEPTION_BACKTRACE', 'EXISTS', 'EXPLAIN', 'EXPIRE',
-     'EXTRACT', 'ELSEIF', 'FALSE', 'FIELDS', 'FIELD_DELIMITER', 'NAN_DISPLAY', 'NULL_DISPLAY', 'NULL_IF',
-     'FILE_FORMAT', 'FILE', 'FILES', 'FINAL', 'FLASHBACK', 'FLOAT', 'FLOAT32', 'FLOAT64', 'FOR', 'FORCE',
-     'FORMAT', 'FOLLOWING', 'FORMAT_NAME', 'FORMATS', 'FRAGMENTS', 'FROM', 'FULL', 'FUNCTION', 'FUNCTIONS',
-     'TABLE_FUNCTIONS', 'SET_VAR', 'FUSE', 'GET', 'GENERATED', 'GEOMETRY', 'GLOBAL', 'GRAPH', 'GROUP', 'GZIP',
-     'HAVING', 'HIGH', 'HISTORY', 'HIVE', 'HOUR', 'HOURS', 'ICEBERG', 'INTERSECT', 'IDENTIFIED', 'IDENTIFIER',
-     'IF', 'IN', 'INCREMENTAL', 'INDEX', 'INFORMATION', 'INITIALIZE', 'INNER', 'INSERT', 'INT', 'INT16',
-     'INT32', 'INT64', 'INT8', 'INTEGER', 'INTERVAL', 'INTO', 'INVERTED', 'IMMEDIATE', 'IS', 'ISODOW',
-     'ISOYEAR', 'JOIN', 'JSON', 'JULIAN', 'JWT', 'KEY', 'KILL', 'LATERAL', 'LOCATION_PREFIX', 'LOCKS',
-     'LOGICAL', 'LOOP', 'SECONDARY', 'ROLES', 'L2DISTANCE', 'LEADING', 'LEFT', 'LET', 'LIKE', 'LIMIT',
-     'LIST', 'LOW', 'LZO', 'MASKING', 'MAP', 'MAX_FILE_SIZE', 'MASTER_KEY', 'MEDIUM', 'MEMO', 'MEMORY',
-     'METRICS', 'MICROSECONDS', 'MILLENNIUM', 'MILLISECONDS', 'MINUTE', 'MONTH', 'MODIFY', 'MATERIALIZED',
-     'MUST_CHANGE_PASSWORD', 'NON_DISPLAY', 'NATURAL', 'NETWORK', 'DISABLED', 'NDJSON', 'NO_PASSWORD', 'NONE',
-     'NOT', 'NOTENANTSETTING', 'DEFAULT_ROLE', 'NULL', 'NULLABLE', 'OBJECT', 'OF', 'OFFSET', 'ON',
-     'ON_CREATE', 'ON_SCHEDULE', 'OPTIMIZE', 'OPTIONS', 'OR', 'ORC', 'ORDER', 'OUTPUT_HEADER', 'OUTER',
-     'ON_ERROR', 'OVER', 'OVERWRITE', 'PARTITION', 'PARQUET', 'PASSWORD', 'PASSWORD_MIN_LENGTH',
-     'PASSWORD_MAX_LENGTH', 'PASSWORD_MIN_UPPER_CASE_CHARS', 'PASSWORD_MIN_LOWER_CASE_CHARS',
-     'PASSWORD_MIN_NUMERIC_CHARS', 'PASSWORD_MIN_SPECIAL_CHARS', 'PASSWORD_MIN_AGE_DAYS', 'PASSWORD_MAX_AGE_DAYS',
-     'PASSWORD_MAX_RETRIES', 'PASSWORD_LOCKOUT_TIME_MINS', 'PASSWORD_HISTORY', 'PATTERN', 'PIPELINE',
-     'PLAINTEXT_PASSWORD', 'POLICIES', 'POLICY', 'POSITION', 'PROCESSLIST', 'PRIORITY', 'PURGE', 'PUT',
-     'QUARTER', 'QUERY', 'QUOTE', 'RANGE', 'RAWDEFLATE', 'READ_ONLY', 'RECLUSTER', 'RECORD_DELIMITER',
-     'REFERENCE_USAGE', 'REFRESH', 'REGEXP', 'RENAME', 'REPLACE', 'RETURN_FAILED_ONLY', 'REVERSE', 'MERGE',
-     'MATCHED', 'MISSING_FIELD_AS', 'NULL_FIELD_AS', 'UNMATCHED', 'ROW', 'ROWS', 'ROW_TAG', 'GRANT', 'REPEAT',
-     'ROLE', 'PRECEDING', 'PRECISION', 'PRESIGN', 'PRIVILEGES', 'QUALIFY', 'REMOVE', 'RETAIN', 'REVOKE',
-     'RECURSIVE', 'RETURN', 'RETURNS', 'RESULTSET', 'RUN', 'GRANTS', 'REFRESH_MODE', 'RIGHT', 'RLIKE', 'RAW',
-     'OPTIMIZED', 'SCHEMA', 'SCHEMAS', 'SECOND', 'MILLISECOND', 'SELECT', 'PIVOT', 'UNPIVOT', 'SEGMENT',
-     'SET', 'UNSET', 'SESSION', 'SETTINGS', 'STAGES', 'STATISTIC', 'SUMMARY', 'SHA256_PASSWORD', 'SHOW',
-     'SINCE', 'SIGNED', 'SINGLE', 'SIZE_LIMIT', 'MAX_FILES', 'SKIP_HEADER', 'SMALLINT', 'SNAPPY', 'SNAPSHOT',
-     'SPLIT_SIZE', 'STAGE', 'SYNTAX', 'USAGE', 'UPDATE', 'UPLOAD', 'SEQUENCE', 'SHARE', 'SHARES', 'SUPER',
-     'STATUS', 'STORED', 'STREAM', 'STREAMS', 'STRING', 'SUBSTRING', 'SUBSTR', 'SEMI', 'SOUNDS', 'SYNC',
-     'SYSTEM', 'STORAGE_TYPE', 'TABLE', 'TABLES', 'TARGET_LAG', 'TEXT', 'LONGTEXT', 'MEDIUMTEXT', 'TINYTEXT',
-     'TENANTSETTING', 'TENANTS', 'TENANT', 'THEN', 'TIMESTAMP', 'TIMEZONE_HOUR', 'TIMEZONE_MINUTE', 'TIMEZONE',
-     'TINYINT', 'TO', 'TOKEN', 'TRAILING', 'TRANSIENT', 'TRIM', 'TRUE', 'TRUNCATE', 'TRY_CAST', 'TSV',
-     'TUPLE', 'TYPE', 'UNBOUNDED', 'UNION', 'UINT16', 'UINT32', 'UINT64', 'UINT8', 'UNDROP', 'UNSIGNED',
-     'URL', 'METHOD', 'AUTHORIZATION_HEADER', 'USE', 'USER', 'USERS', 'USING', 'VACUUM', 'VALUES',
-     'VALIDATION_MODE', 'VARBINARY', 'VARCHAR', 'VARIANT', 'VERBOSE', 'VIEW', 'VIEWS', 'VIRTUAL', 'WHEN',
-     'WHERE', 'WHILE', 'WINDOW', 'WITH', 'XML', 'XOR', 'XZ', 'YEAR', 'ZSTD', 'NULLIF', 'COALESCE', 'RANDOM',
-     'IFNULL', 'NULLS', 'FIRST', 'LAST', 'IGNORE_RESULT', 'GROUPING', 'SETS', 'CUBE', 'ROLLUP', 'INDEXES',
-     'ADDRESS', 'OWNERSHIP', 'READ', 'WRITE', 'UDF', 'HANDLER', 'LANGUAGE', 'TASK', 'TASKS', 'TOP',
-     'WAREHOUSE', 'SCHEDULE', 'SUSPEND_TASK_AFTER_NUM_FAILURES', 'CRON', 'EXECUTE', 'SUSPEND', 'RESUME', 'PIPE',
-     'NOTIFICATION', 'INTEGRATION', 'ENABLED', 'WEBHOOK', 'ERROR_INTEGRATION', 'AUTO_INGEST',
-     'PIPE_EXECUTION_PAUSED', 'PREFIX', 'MODIFIED_AFTER', 'UNTIL', 'BEGIN', 'TRANSACTION', 'COMMIT', 'ABORT',
-     'ROLLBACK', 'TEMPORARY', 'SECONDS', 'DAYS'
+    'LiteralCodeString', 'LiteralAtString', 'PGLiteralHex', 'MySQLLiteralHex', 'LiteralInteger', 'LiteralFloat',
+    'HintPrefix', 'HintSuffix', 'DoubleEq', 'Eq', 'NotEq', 'Lt', 'Gt', 'Lte', 'Gte', 'Spaceship', 'Plus',
+    'Minus', 'Multiply', 'Divide', 'IntDiv', 'Modulo', 'StringConcat', 'LParen', 'RParen', 'Comma', 'Dot',
+    'Colon', 'DoubleColon', 'ColonEqual', 'SemiColon', 'Backslash', 'LBracket', 'RBracket', 'Caret', 'LBrace',
+    'RBrace', 'RArrow', 'LongRArrow', 'FatRArrow', 'HashRArrow', 'HashLongRArrow', 'TildeAsterisk',
+    'ExclamationMarkTilde', 'ExclamationMarkTildeAsterisk', 'BitWiseAnd', 'BitWiseOr', 'BitWiseXor',
+    'BitWiseNot', 'ShiftLeft', 'ShiftRight', 'Factorial', 'DoubleExclamationMark', 'Abs', 'SquareRoot',
+    'CubeRoot', 'Placeholder', 'QuestionOr', 'QuestionAnd', 'ArrowAt', 'AtArrow', 'AtQuestion', 'AtAt',
+    'HashMinus', 'ACCOUNT', 'ALL', 'ALLOWED_IP_LIST', 'ADD', 'AFTER', 'AGGREGATING', 'ANY', 'APPEND_ONLY',
+    'ARGS', 'AUTO', 'SOME', 'ALTER', 'ALWAYS', 'ANALYZE', 'AND', 'ARRAY', 'AS', 'AST', 'AT', 'ASC',
+    'ANTI', 'ASYNC', 'ATTACH', 'BEFORE', 'BETWEEN', 'BIGINT', 'BINARY', 'BREAK', 'LONGBLOB', 'MEDIUMBLOB',
+    'TINYBLOB', 'BLOB', 'BINARY_FORMAT', 'BITMAP', 'BLOCKED_IP_LIST', 'BOOL', 'BOOLEAN', 'BOTH', 'BY',
+    'BROTLI', 'BZ2', 'CALL', 'CASE', 'CAST', 'CATALOG', 'CATALOGS', 'CENTURY', 'CHANGES', 'CLUSTER',
+    'COMMENT', 'COMMENTS', 'COMPACT', 'CONNECTION', 'CONNECTIONS', 'CONSUME', 'CONTENT_TYPE', 'CONTINUE',
+    'CHAR', 'COLUMN', 'COLUMNS', 'CHARACTER', 'CONFLICT', 'COMPRESSION', 'COPY_OPTIONS', 'COPY', 'COUNT',
+    'CREDENTIAL', 'CREATE', 'CROSS', 'CSV', 'CURRENT', 'CURRENT_TIMESTAMP', 'DATABASE', 'DATABASES', 'DATA',
+    'DATE', 'DATE_ADD', 'DATE_PART', 'DATE_SUB', 'DATE_TRUNC', 'DATETIME', 'DAY', 'DECADE', 'DECIMAL',
+    'DECLARE', 'DEFAULT', 'DEFLATE', 'DELETE', 'DESC', 'DETAILED_OUTPUT', 'DESCRIBE', 'DISABLE',
+    'DISABLE_VARIANT_CHECK', 'DISTINCT', 'RESPECT', 'IGNORE', 'DIV', 'DOUBLE_SHA1_PASSWORD', 'DO', 'DOUBLE',
+    'DOW', 'WEEK', 'DELTA', 'DOY', 'DOWNLOAD', 'DOWNSTREAM', 'DROP', 'DRY', 'DYNAMIC', 'EXCEPT', 'EXCLUDE',
+    'ELSE', 'EMPTY_FIELD_AS', 'ENABLE', 'ENABLE_VIRTUAL_HOST_STYLE', 'END', 'ENDPOINT', 'ENGINE', 'ENGINES',
+    'EPOCH', 'ERROR_ON_COLUMN_COUNT_MISMATCH', 'ESCAPE', 'EXCEPTION_BACKTRACE', 'EXISTS', 'EXPLAIN', 'EXPIRE',
+    'EXTRACT', 'ELSEIF', 'FALSE', 'FIELDS', 'FIELD_DELIMITER', 'NAN_DISPLAY', 'NULL_DISPLAY', 'NULL_IF',
+    'FILE_FORMAT', 'FILE', 'FILES', 'FINAL', 'FLASHBACK', 'FLOAT', 'FLOAT32', 'FLOAT64', 'FOR', 'FORCE',
+    'FORMAT', 'FOLLOWING', 'FORMAT_NAME', 'FORMATS', 'FRAGMENTS', 'FROM', 'FULL', 'FUNCTION', 'FUNCTIONS',
+    'TABLE_FUNCTIONS', 'SET_VAR', 'FUSE', 'GET', 'GENERATED', 'GEOMETRY', 'GLOBAL', 'GRAPH', 'GROUP', 'GZIP',
+    'HAVING', 'HIGH', 'HISTORY', 'HIVE', 'HOUR', 'HOURS', 'ICEBERG', 'INTERSECT', 'IDENTIFIED', 'IDENTIFIER',
+    'IF', 'IN', 'INCREMENTAL', 'INDEX', 'INFORMATION', 'INITIALIZE', 'INNER', 'INSERT', 'INT', 'INT16',
+    'INT32', 'INT64', 'INT8', 'INTEGER', 'INTERVAL', 'INTO', 'INVERTED', 'IMMEDIATE', 'IS', 'ISODOW',
+    'ISOYEAR', 'JOIN', 'JSON', 'JULIAN', 'JWT', 'KEY', 'KILL', 'LATERAL', 'LOCATION_PREFIX', 'LOCKS',
+    'LOGICAL', 'LOOP', 'SECONDARY', 'ROLES', 'L2DISTANCE', 'LEADING', 'LEFT', 'LET', 'LIKE', 'LIMIT',
+    'LIST', 'LOW', 'LZO', 'MASKING', 'MAP', 'MAX_FILE_SIZE', 'MASTER_KEY', 'MEDIUM', 'MEMO', 'MEMORY',
+    'METRICS', 'MICROSECONDS', 'MILLENNIUM', 'MILLISECONDS', 'MINUTE', 'MONTH', 'MODIFY', 'MATERIALIZED',
+    'MUST_CHANGE_PASSWORD', 'NON_DISPLAY', 'NATURAL', 'NETWORK', 'DISABLED', 'NDJSON', 'NO_PASSWORD', 'NONE',
+    'NOT', 'NOTENANTSETTING', 'DEFAULT_ROLE', 'NULL', 'NULLABLE', 'OBJECT', 'OF', 'OFFSET', 'ON',
+    'ON_CREATE', 'ON_SCHEDULE', 'OPTIMIZE', 'OPTIONS', 'OR', 'ORC', 'ORDER', 'OUTPUT_HEADER', 'OUTER',
+    'ON_ERROR', 'OVER', 'OVERWRITE', 'PARTITION', 'PARQUET', 'PASSWORD', 'PASSWORD_MIN_LENGTH',
+    'PASSWORD_MAX_LENGTH', 'PASSWORD_MIN_UPPER_CASE_CHARS', 'PASSWORD_MIN_LOWER_CASE_CHARS',
+    'PASSWORD_MIN_NUMERIC_CHARS', 'PASSWORD_MIN_SPECIAL_CHARS', 'PASSWORD_MIN_AGE_DAYS', 'PASSWORD_MAX_AGE_DAYS',
+    'PASSWORD_MAX_RETRIES', 'PASSWORD_LOCKOUT_TIME_MINS', 'PASSWORD_HISTORY', 'PATTERN', 'PIPELINE',
+    'PLAINTEXT_PASSWORD', 'POLICIES', 'POLICY', 'POSITION', 'PROCESSLIST', 'PRIORITY', 'PURGE', 'PUT',
+    'QUARTER', 'QUERY', 'QUOTE', 'RANGE', 'RAWDEFLATE', 'READ_ONLY', 'RECLUSTER', 'RECORD_DELIMITER',
+    'REFERENCE_USAGE', 'REFRESH', 'REGEXP', 'RENAME', 'REPLACE', 'RETURN_FAILED_ONLY', 'REVERSE', 'MERGE',
+    'MATCHED', 'MISSING_FIELD_AS', 'NULL_FIELD_AS', 'UNMATCHED', 'ROW', 'ROWS', 'ROW_TAG', 'GRANT', 'REPEAT',
+    'ROLE', 'PRECEDING', 'PRECISION', 'PRESIGN', 'PRIVILEGES', 'QUALIFY', 'REMOVE', 'RETAIN', 'REVOKE',
+    'RECURSIVE', 'RETURN', 'RETURNS', 'RESULTSET', 'RUN', 'GRANTS', 'REFRESH_MODE', 'RIGHT', 'RLIKE', 'RAW',
+    'OPTIMIZED', 'SCHEMA', 'SCHEMAS', 'SECOND', 'MILLISECOND', 'SELECT', 'PIVOT', 'UNPIVOT', 'SEGMENT',
+    'SET', 'UNSET', 'SESSION', 'SETTINGS', 'STAGES', 'STATISTIC', 'SUMMARY', 'SHA256_PASSWORD', 'SHOW',
+    'SINCE', 'SIGNED', 'SINGLE', 'SIZE_LIMIT', 'MAX_FILES', 'SKIP_HEADER', 'SMALLINT', 'SNAPPY', 'SNAPSHOT',
+    'SPLIT_SIZE', 'STAGE', 'SYNTAX', 'USAGE', 'UPDATE', 'UPLOAD', 'SEQUENCE', 'SHARE', 'SHARES', 'SUPER',
+    'STATUS', 'STORED', 'STREAM', 'STREAMS', 'STRING', 'SUBSTRING', 'SUBSTR', 'SEMI', 'SOUNDS', 'SYNC',
+    'SYSTEM', 'STORAGE_TYPE', 'TABLE', 'TABLES', 'TARGET_LAG', 'TEXT', 'LONGTEXT', 'MEDIUMTEXT', 'TINYTEXT',
+    'TENANTSETTING', 'TENANTS', 'TENANT', 'THEN', 'TIMESTAMP', 'TIMEZONE_HOUR', 'TIMEZONE_MINUTE', 'TIMEZONE',
+    'TINYINT', 'TO', 'TOKEN', 'TRAILING', 'TRANSIENT', 'TRIM', 'TRUE', 'TRUNCATE', 'TRY_CAST', 'TSV',
+    'TUPLE', 'TYPE', 'UNBOUNDED', 'UNION', 'UINT16', 'UINT32', 'UINT64', 'UINT8', 'UNDROP', 'UNSIGNED',
+    'URL', 'METHOD', 'AUTHORIZATION_HEADER', 'USE', 'USER', 'USERS', 'USING', 'VACUUM', 'VALUES',
+    'VALIDATION_MODE', 'VARBINARY', 'VARCHAR', 'VARIANT', 'VERBOSE', 'VIEW', 'VIEWS', 'VIRTUAL', 'WHEN',
+    'WHERE', 'WHILE', 'WINDOW', 'WITH', 'XML', 'XOR', 'XZ', 'YEAR', 'ZSTD', 'NULLIF', 'COALESCE', 'RANDOM',
+    'IFNULL', 'NULLS', 'FIRST', 'LAST', 'IGNORE_RESULT', 'GROUPING', 'SETS', 'CUBE', 'ROLLUP', 'INDEXES',
+    'ADDRESS', 'OWNERSHIP', 'READ', 'WRITE', 'UDF', 'HANDLER', 'LANGUAGE', 'TASK', 'TASKS', 'TOP',
+    'WAREHOUSE', 'SCHEDULE', 'SUSPEND_TASK_AFTER_NUM_FAILURES', 'CRON', 'EXECUTE', 'SUSPEND', 'RESUME', 'PIPE',
+    'NOTIFICATION', 'INTEGRATION', 'ENABLED', 'WEBHOOK', 'ERROR_INTEGRATION', 'AUTO_INGEST',
+    'PIPE_EXECUTION_PAUSED', 'PREFIX', 'MODIFIED_AFTER', 'UNTIL', 'BEGIN', 'TRANSACTION', 'COMMIT', 'ABORT',
+    'ROLLBACK', 'TEMPORARY', 'SECONDS', 'DAYS'
 }
 
 
@@ -390,11 +390,11 @@ class DatabendCompiler(PGCompiler):
         return "%s LIKE %s" % (
             binary.left._compiler_dispatch(self, **kw),
             binary.right._compiler_dispatch(self, **kw),
-        # ToDo - escape not yet supported
-        # ) + (
-        #     " ESCAPE " + self.render_literal_value(escape, sqltypes.STRINGTYPE)
-        #     if escape
-        #     else ""
+            # ToDo - escape not yet supported
+            # ) + (
+            #     " ESCAPE " + self.render_literal_value(escape, sqltypes.STRINGTYPE)
+            #     if escape
+            #     else ""
         )
 
     def visit_not_like_op_binary(self, binary, operator, **kw):
@@ -402,13 +402,12 @@ class DatabendCompiler(PGCompiler):
         return "%s NOT LIKE %s" % (
             binary.left._compiler_dispatch(self, **kw),
             binary.right._compiler_dispatch(self, **kw),
-        # ToDo - escape not yet supported
-        # ) + (
-        #     " ESCAPE " + self.render_literal_value(escape, sqltypes.STRINGTYPE)
-        #     if escape
-        #     else ""
+            # ToDo - escape not yet supported
+            # ) + (
+            #     " ESCAPE " + self.render_literal_value(escape, sqltypes.STRINGTYPE)
+            #     if escape
+            #     else ""
         )
-
 
     def visit_merge(self, merge, **kw):
         clauses = "\n ".join(
@@ -419,7 +418,8 @@ class DatabendCompiler(PGCompiler):
         if isinstance(merge.source, TableClause):
             source = select(merge.source).subquery().alias(merge.source.name)._compiler_dispatch(self, **source_kw)
         elif isinstance(merge.source, Select):
-            source = merge.source.subquery().alias(merge.source.get_final_froms()[0].name)._compiler_dispatch(self, **source_kw)
+            source = merge.source.subquery().alias(merge.source.get_final_froms()[0].name)._compiler_dispatch(self,
+                                                                                                              **source_kw)
         elif isinstance(merge.source, Subquery):
             source = merge.source._compiler_dispatch(self, **source_kw)
 
@@ -536,7 +536,7 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
         return ""
 
     def create_table_constraints(
-        self, table, _include_foreign_key_constraints=None, **kw
+            self, table, _include_foreign_key_constraints=None, **kw
     ):
         return ""
 
@@ -586,7 +586,7 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
                 f"\n CLUSTER BY ( {cluster_by} )"
             )
 
-        #ToDo - Engine options
+        # ToDo - Engine options
 
         return " ".join(table_opts)
 
@@ -669,8 +669,13 @@ class DatabendDialect(default.DefaultDialect):
             "dsn": "databend://%s:%s@%s:%d/%s"
                    % (url.username, url.password, url.host, url.port or 8000, url.database),
         }
-        for k, v in parameters.items():
-            kwargs["dsn"] = kwargs["dsn"] + "?" + k + "=" + v
+
+        if parameters:
+            kwargs["dsn"] += "?"
+            param_strings = []
+            for k, v in parameters.items():
+                param_strings.append(f"{k}={v}")
+            kwargs["dsn"] += "&".join(param_strings)
 
         return ([], kwargs)
 
@@ -751,7 +756,7 @@ class DatabendDialect(default.DefaultDialect):
             view_def = connection.execute(text(query)).first()
             return view_def[1]
         except DBAPIError as e:
-            if '1025' in e.orig.message:  #ToDo: The errors need parsing properly
+            if '1025' in e.orig.message:  # ToDo: The errors need parsing properly
                 raise NoSuchTableError(full_view_name) from e
 
     def _get_column_type(self, column_type):

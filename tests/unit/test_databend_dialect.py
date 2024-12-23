@@ -32,15 +32,20 @@ class TestDatabendDialect:
         assert isinstance(dialect.type_compiler, DatabendTypeCompiler)
         assert dialect.context == {}
 
-    # def test_create_connect_args_service_account(self, dialect: DatabendDialect):
-    #     u = url.make_url(
-    #         "databend://user:pass@localhost:8000/testdb?sslmode=disable"
-    #     )
-    #
-    #     result_list, result_dict = dialect.create_connect_args(u)
-    #     assert result_dict["dsn"] == "databend://localhost:8000/"
-    #     assert result_dict["database"] == "testdb"
-    #     assert result_dict["username"] == "user"
+    def test_create_connect_args(self, dialect: DatabendDialect):
+        u = url.make_url("databend://user:pass@localhost:8000/testdb")
+        result_list, result_dict = dialect.create_connect_args(u)
+        assert result_dict["dsn"] == "databend://user:pass@localhost:8000/testdb"
+
+        u = url.make_url("databend://user:pass@host:443/db")
+        args, kwargs = dialect.create_connect_args(u)
+        assert args == []
+        assert kwargs["dsn"] == "databend://user:pass@host:443/db"
+
+        u = url.make_url("databend://user:pass@host:443/db?warehouse=test&secure=True")
+        args, kwargs = dialect.create_connect_args(u)
+        assert args == []
+        assert kwargs["dsn"] == "databend://user:pass@host:443/db?warehouse=test&secure=True"
 
     def test_do_execute(
             self, dialect: DatabendDialect, cursor: mock.Mock(spec=MockCursor)
@@ -136,15 +141,14 @@ class TestDatabendDialect:
             and table_schema = :schema_name
             """
 
-
         for call, expected_params in (
                 (
-                    lambda: dialect.get_columns(connection, "table"),
-                    {'table_name': 'table', 'schema_name': None},
+                        lambda: dialect.get_columns(connection, "table"),
+                        {'table_name': 'table', 'schema_name': None},
                 ),
                 (
-                    lambda: dialect.get_columns(connection, "table", "schema"),
-                    {'table_name': 'table', 'schema_name': 'schema'},
+                        lambda: dialect.get_columns(connection, "table", "schema"),
+                        {'table_name': 'table', 'schema_name': 'schema'},
                 ),
         ):
             result = call()
@@ -191,8 +195,8 @@ def test_types():
     assert databend_sqlalchemy.databend_dialect.CHAR is sqlalchemy.sql.sqltypes.CHAR
     assert issubclass(databend_sqlalchemy.databend_dialect.DatabendDate, sqlalchemy.sql.sqltypes.DATE)
     assert issubclass(
-            databend_sqlalchemy.databend_dialect.DatabendDateTime,
-            sqlalchemy.sql.sqltypes.DATETIME,
+        databend_sqlalchemy.databend_dialect.DatabendDateTime,
+        sqlalchemy.sql.sqltypes.DATETIME,
     )
     assert (
             databend_sqlalchemy.databend_dialect.INTEGER is sqlalchemy.sql.sqltypes.INTEGER
