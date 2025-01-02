@@ -62,6 +62,112 @@ The Merge command can be used as below::
         connection.execute(merge)
 
 
+Copy Into Command Support
+---------------------
+
+Databend SQLAlchemy supports copy into operations through it's CopyIntoTable and CopyIntoLocation methods
+See [CopyIntoLocation](https://docs.databend.com/sql/sql-commands/dml/dml-copy-into-location) or [CopyIntoTable](https://docs.databend.com/sql/sql-commands/dml/dml-copy-into-table) for full documentation.
+
+The CopyIntoTable command can be used as below::
+
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy import MetaData, create_engine
+        from databend_sqlalchemy import (
+            CopyIntoTable, GoogleCloudStorage, ParquetFormat, CopyIntoTableOptions,
+            FileColumnClause, CSVFormat,
+        )
+
+        engine = create_engine(db.url, echo=False)
+        session = sessionmaker(bind=engine)()
+        connection = engine.connect()
+
+        meta = MetaData()
+        meta.reflect(bind=session.bind)
+        t1 = meta.tables['t1']
+        t2 = meta.tables['t2']
+        gcs_private_key = 'full_gcs_json_private_key'
+        case_sensitive_columns = True
+
+        copy_into = CopyIntoTable(
+            target=t1,
+            from_=GoogleCloudStorage(
+                uri='gcs://bucket-name/path/to/file',
+                credentials=base64.b64encode(gcs_private_key.encode()).decode(),
+            ),
+            file_format=ParquetFormat(),
+            options=CopyIntoTableOptions(
+                force=True,
+                column_match_mode='CASE_SENSITIVE' if case_sensitive_columns else None,
+            )
+        )
+        result = connection.execute(copy_into)
+        result.fetchall()  # always call fetchall() to ensure the cursor executes to completion
+
+        # More involved example with column selection clause that can be altered to perform operations on the columns during import.
+
+        copy_into = CopyIntoTable(
+            target=t2,
+            from_=FileColumnClause(
+                columns=', '.join([
+                    f'${index + 1}'
+                    for index, column in enumerate(t2.columns)
+                ]),
+                from_=GoogleCloudStorage(
+                    uri='gcs://bucket-name/path/to/file',
+                    credentials=base64.b64encode(gcs_private_key.encode()).decode(),
+                )
+            ),
+            pattern='*.*',
+            file_format=CSVFormat(
+                record_delimiter='\n',
+                field_delimiter=',',
+                quote='"',
+                escape='',
+                skip_header=1,
+                empty_field_as='NULL',
+                compression=Compression.AUTO,
+            ),
+            options=CopyIntoTableOptions(
+                force=True,
+            )
+        )
+        result = connection.execute(copy_into)
+        result.fetchall()  # always call fetchall() to ensure the cursor executes to completion
+
+The CopyIntoLocation command can be used as below::
+
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy import MetaData, create_engine
+        from databend_sqlalchemy import (
+            CopyIntoLocation, GoogleCloudStorage, ParquetFormat, CopyIntoLocationOptions,
+        )
+
+        engine = create_engine(db.url, echo=False)
+        session = sessionmaker(bind=engine)()
+        connection = engine.connect()
+
+        meta = MetaData()
+        meta.reflect(bind=session.bind)
+        t1 = meta.tables['t1']
+        gcs_private_key = 'full_gcs_json_private_key'
+
+        copy_into = CopyIntoLocation(
+            target=GoogleCloudStorage(
+                uri='gcs://bucket-name/path/to/target_file',
+                credentials=base64.b64encode(gcs_private_key.encode()).decode(),
+            ),
+            from_=select(t1).where(t1.c['col1'] == 1),
+            file_format=ParquetFormat(),
+            options=CopyIntoLocationOptions(
+                single=True,
+                overwrite=True,
+                include_query_id=False,
+                use_raw_path=True,
+            )
+        )
+        result = connection.execute(copy_into)
+        result.fetchall()  # always call fetchall() to ensure the cursor executes to completion
+
 Table Options
 ---------------------
 
