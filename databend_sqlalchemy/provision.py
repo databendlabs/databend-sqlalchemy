@@ -1,7 +1,7 @@
 
 from sqlalchemy.testing.provision import create_db
 from sqlalchemy.testing.provision import drop_db
-from sqlalchemy.testing.provision import configure_follower
+from sqlalchemy.testing.provision import configure_follower, update_db_opts
 
 
 @create_db.for_db("databend")
@@ -36,3 +36,8 @@ def _databend_drop_db(cfg, eng, ident):
 def _databend_configure_follower(config, ident):
     config.test_schema = "%s_test_schema" % ident
     config.test_schema_2 = "%s_test_schema_2" % ident
+
+# Uncomment to debug SQL Statements in tests
+# @update_db_opts.for_db("databend")
+# def _mssql_update_db_opts(db_url, db_opts):
+#     db_opts["echo"] = True
