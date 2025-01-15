@@ -15,7 +15,7 @@ from sqlalchemy.testing import fixtures
 from sqlalchemy.testing.assertions import assert_raises
 from sqlalchemy.testing.assertions import eq_
 
-from databend_sqlalchemy.databend_dialect import Merge
+from databend_sqlalchemy import Merge
 
 
 class MergeIntoTest(fixtures.TablesTest):
