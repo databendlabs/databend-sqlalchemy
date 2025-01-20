@@ -104,7 +104,7 @@ class Connection:
         pass
 
     def cursor(self):
-        return Cursor(self.client.get_conn())
+        return Cursor(self.client.cursor())
 
     def rollback(self):
         raise NotSupportedError("Transactions are not supported")  # pragma: no cover
@@ -173,7 +173,7 @@ class Cursor:
     def execute(self, operation, parameters=None, is_response=True):
         """Prepare and execute a database operation (query or command)."""
 
-        #ToDo - Fix this, which is preventing the execution of blank DDL sunch as CREATE INDEX statements which aren't currently supported
+        # ToDo - Fix this, which is preventing the execution of blank DDL sunch as CREATE INDEX statements which aren't currently supported
         # Seems hard to fix when statements are coming from metadata.create_all()
         if operation == "":
             return
@@ -185,7 +185,7 @@ class Cursor:
 
         try:
             query = self.mogrify(operation, parameters)
-            query = query.replace('%%', '%')
+            query = query.replace("%%", "%")
             if is_response:
                 rows = self._db.query_iter(query)
                 schema = rows.schema()
@@ -222,7 +222,7 @@ class Cursor:
         m = RE_INSERT_VALUES.match(operation)
         if m:
             try:
-                q_prefix = m.group(1) #.replace('%%', '%') % ()
+                q_prefix = m.group(1)  # .replace('%%', '%') % ()
                 q_values = m.group(2).rstrip()
 
                 for parameters in seq_of_parameters:
