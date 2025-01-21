@@ -48,7 +48,7 @@ class ParamEscaper:
         elif isinstance(item, decimal.Decimal):
             return self.escape_number(item)
         elif isinstance(item, timedelta):
-             return self.escape_string(f'{item.total_seconds()} seconds') + '::interval'
+            return self.escape_string(f"{item.total_seconds()} seconds") + "::interval"
         elif isinstance(item, (datetime, date, time, timedelta)):
             return self.escape_string(item.strftime("%Y-%m-%d %H:%M:%S"))
         else:
@@ -225,12 +225,10 @@ class Cursor:
         as :py:meth:`fetchone`. A ``StopIteration`` exception is raised when the result set is
         exhausted.
         """
-        row = self.fetchone()
-        if row is None:
-            raise StopIteration()
-        return row
+        return self.inner.__next__()
 
-    next = fetchone
+    def next(self):
+        return self.__next__()
 
     def __iter__(self):
         """Return self to make cursors compatible to the iteration protocol."""
