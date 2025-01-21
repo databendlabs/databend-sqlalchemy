@@ -5,9 +5,8 @@
 # Many docstrings in this file are based on the PEP, which is in the public domain.
 import decimal
 import re
-import uuid
 from datetime import datetime, date, time, timedelta
-from databend_sqlalchemy.errors import Error, ServerException, NotSupportedError
+from databend_sqlalchemy.errors import Error, NotSupportedError
 
 from databend_driver import BlockingDatabendClient
 
