@@ -736,48 +736,6 @@ class DatabendNumeric(sqltypes.Numeric):
         return process
 
 
-class DatabendInterval(sqltypes.Interval):
-    """Stores interval as a datetime relative to epoch, see base implementation."""
-
-    _reg = re.compile(r"(\d+)-(\d+)-(\d+) (\d+):(\d+):(\d+)")
-
-    def result_processor(self, dialect, coltype):
-        def process(value):
-            if value is None:
-                return None
-            if isinstance(value, str):
-                m = self._reg.match(value)
-                if not m:
-                    raise ValueError(
-                        "could not parse %r as a datetime value" % (value,)
-                    )
-                groups = m.groups()
-                dt = datetime.datetime(
-                    *[
-                        int(groups[0] or self.epoch.year),
-                        int(groups[1] or self.epoch.month),
-                        int(groups[2] or self.epoch.day),
-                        int(groups[3] or 0),
-                        int(groups[4] or 0),
-                        int(groups[5] or 0),
-                    ]
-                )
-            else:
-                dt = value
-            return dt - self.epoch
-
-        return process
-
-    def literal_processor(self, dialect):
-        def process(value):
-            if value is not None:
-                d = self.epoch + value
-                interval_str = d.isoformat(" ", timespec="microseconds")
-                return f"'{interval_str}'"
-
-        return process
-
-
 class DatabendInterval(INTERVAL):
     render_bind_cast = True
 
