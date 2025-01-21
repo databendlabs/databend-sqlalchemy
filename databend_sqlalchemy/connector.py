@@ -47,6 +47,8 @@ class ParamEscaper:
             return self.escape_number(item)
         elif isinstance(item, decimal.Decimal):
             return self.escape_number(item)
+        elif isinstance(item, timedelta):
+             return self.escape_string(f'{item.total_seconds()} seconds') + '::interval'
         elif isinstance(item, (datetime, date, time, timedelta)):
             return self.escape_string(item.strftime("%Y-%m-%d %H:%M:%S"))
         else:

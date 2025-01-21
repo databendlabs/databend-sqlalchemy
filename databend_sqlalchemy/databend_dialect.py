@@ -58,7 +58,9 @@ from sqlalchemy.types import (
 )
 from sqlalchemy.engine import ExecutionContext, default
 from sqlalchemy.exc import DBAPIError, NoSuchTableError
+
 from .dml import Merge
+from .types import INTERVAL
 
 RESERVED_WORDS = {
     "Error",
@@ -776,6 +778,10 @@ class DatabendInterval(sqltypes.Interval):
         return process
 
 
+class DatabendInterval(INTERVAL):
+    render_bind_cast = True
+
+
 # Type converters
 ischema_names = {
     "bigint": BIGINT,
@@ -1028,6 +1034,9 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
 
     def visit_TIME(self, type_, **kw):
         return "DATETIME"
+
+    def visit_INTERVAL(self, type, **kw):
+        return "INTERVAL"
 
 
 class DatabendDDLCompiler(compiler.DDLCompiler):
