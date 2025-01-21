@@ -118,22 +118,8 @@ class Cursor:
     visible by other cursors or connections.
     """
 
-    _STATE_NONE = None
-    _STATE_RUNNING = "Running"
-    _STATE_SUCCEEDED = "Succeeded"
-
     def __init__(self, conn):
-        self._db = conn
-        self._reset_state()
-
-    def _reset_state(self):
-        """Reset state about the previous query in preparation for running another query"""
-        self._uuid = None
-        self._rownumber = 0
-        # Internal helper state
-        self._state = self._STATE_NONE
-        self._rows = None
-        self._columns = None
+        self.inner = conn
 
     @property
     def rowcount(self):
@@ -157,20 +143,17 @@ class Cursor:
         The ``type_code`` can be interpreted by comparing it to the Type Objects specified in the
         section below.
         """
-        # Sleep until we're done or we got the columns
-        if self._columns is None:
-            return []
-        return self._columns
+        return []
 
     def close(self):
-        self._reset_state()
+        self.inner.close()
 
     def mogrify(self, query, parameters):
         if parameters:
             query = query % _escaper.escape_args(parameters)
         return query
 
-    def execute(self, operation, parameters=None, is_response=True):
+    def execute(self, operation, parameters=None):
         """Prepare and execute a database operation (query or command)."""
 
         # ToDo - Fix this, which is preventing the execution of blank DDL sunch as CREATE INDEX statements which aren't currently supported
@@ -178,29 +161,14 @@ class Cursor:
         if operation == "":
             return
 
-        self._reset_state()
-
-        self._state = self._STATE_RUNNING
-        self._uuid = uuid.uuid1()
-
         try:
             query = self.mogrify(operation, parameters)
             query = query.replace("%%", "%")
-            if is_response:
-                rows = self._db.query_iter(query)
-                schema = rows.schema()
-                columns = []
-                for field in schema.fields():
-                    columns.append((field.name, field.data_type))
-                if self._state != self._STATE_RUNNING:
-                    raise Exception("Should be running if processing response")
-                self._rows = rows
-                self._columns = columns
-                self._state = self._STATE_SUCCEEDED
-            else:
-                self._db.exec(query)
         except Exception as e:
-            # We have to raise dbAPI error
+            raise Error(str(e)) from e
+        try:
+            return self.inner.execute(query)
+        except Exception as e:
             raise Error(str(e)) from e
 
     def executemany(self, operation, seq_of_parameters):
@@ -211,7 +179,6 @@ class Cursor:
 
         Return values are not defined.
         """
-        values_list = []
         RE_INSERT_VALUES = re.compile(
             r"\s*((?:INSERT|REPLACE)\s.+\sVALUES?\s*)"
             + r"(\(\s*(?:%s|%\(.+\)s)\s*(?:,\s*(?:%s|%\(.+\)s)\s*)*\))"
@@ -222,34 +189,18 @@ class Cursor:
         m = RE_INSERT_VALUES.match(operation)
         if m:
             try:
-                q_prefix = m.group(1)  # .replace('%%', '%') % ()
-                q_values = m.group(2).rstrip()
-
-                for parameters in seq_of_parameters:
-                    values_list.append(q_values % _escaper.escape_args(parameters))
-                query = "{} {};".format(q_prefix, ",".join(values_list))
-                self._db.exec(query)
+                return self.inner.executemany(operation, seq_of_parameters)
             except Exception as e:
                 # We have to raise dbAPI error
                 raise Error(str(e)) from e
         else:
             for parameters in seq_of_parameters:
-                self.execute(operation, parameters, is_response=False)
+                self.execute(operation, parameters)
 
     def fetchone(self):
         """Fetch the next row of a query result set, returning a single sequence, or ``None`` when
         no more data is available."""
-        if self._state == self._STATE_NONE:
-            raise Error("No query yet")
-        if not self._rows:
-            raise Error("No rows yet")
-        else:
-            self._rownumber += 1
-            try:
-                row = self._rows.__next__()
-            except StopIteration:
-                return None
-            return row.values()
+        return self.inner.fetchone()
 
     def fetchmany(self, size=None):
         """Fetch the next set of rows of a query result, returning a sequence of sequences (e.g. a
@@ -260,44 +211,23 @@ class Cursor:
         fetch as many rows as indicated by the size parameter. If this is not possible due to the
         specified number of rows not being available, fewer rows may be returned.
         """
-        if self._state == self._STATE_NONE:
-            raise Error("No query yet")
-
-        if size is None:
-            size = 1
-
-        data = []
-        if self._rows:
-            for row in self._rows:
-                self._rownumber += 1
-                data.append(row.values())
-                if len(data) == size:
-                    break
-        return data
+        return self.inner.fetchmany(size)
 
     def fetchall(self):
         """Fetch all (remaining) rows of a query result, returning them as a sequence of sequences
         (e.g. a list of tuples).
         """
-        if self._state == self._STATE_NONE:
-            raise Error("No query yet")
-
-        data = []
-        if self._rows:
-            for row in self._rows:
-                self._rownumber += 1
-                data.append(row.values())
-        return data
+        return self.inner.fetchall()
 
     def __next__(self):
         """Return the next row from the currently executing SQL statement using the same semantics
         as :py:meth:`fetchone`. A ``StopIteration`` exception is raised when the result set is
         exhausted.
         """
-        if not self._rows:
+        row = self.fetchone()
+        if row is None:
             raise StopIteration()
-        n = self._rows.__next__()
-        return n.values()
+        return row
 
     next = fetchone
 
@@ -306,17 +236,7 @@ class Cursor:
         return self
 
     def cancel(self):
-        if self._state == self._STATE_NONE:
-            raise ServerException("No query yet")
-        if self._uuid is None:
-            if self._state != self._STATE_RUNNING:
-                raise ServerException("Query should be running")
-            return
-        # Replace current running query to cancel it
-        self._db.execute("SELECT 1")
-        self._state = self._STATE_SUCCEEDED
-        self._uuid = None
-        self._rows = None
+        pass
 
     def poll(self):
         pass
