@@ -180,23 +180,8 @@ class Cursor:
 
         Return values are not defined.
         """
-        RE_INSERT_VALUES = re.compile(
-            r"\s*((?:INSERT|REPLACE)\s.+\sVALUES?\s*)"
-            + r"(\(\s*(?:%s|%\(.+\)s)\s*(?:,\s*(?:%s|%\(.+\)s)\s*)*\))"
-            + r"(\s*(?:ON DUPLICATE.*)?);?\s*\Z",
-            re.IGNORECASE | re.DOTALL,
-        )
-
-        m = RE_INSERT_VALUES.match(operation)
-        if m:
-            try:
-                return self.inner.executemany(operation, seq_of_parameters)
-            except Exception as e:
-                # We have to raise dbAPI error
-                raise Error(str(e)) from e
-        else:
-            for parameters in seq_of_parameters:
-                self.execute(operation, parameters)
+        for parameters in seq_of_parameters:
+            self.execute(operation, parameters)
 
     def fetchone(self):
         """Fetch the next row of a query result set, returning a single sequence, or ``None`` when
