@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import datetime as dt
@@ -50,7 +49,9 @@ class INTERVAL(type_api.NativeForEmulated, sqltypes._AbstractInterval):
 
     @classmethod
     def adapt_emulated_to_native(
-        cls, interval: sqltypes.Interval, **kw: Any  # type: ignore[override]
+        cls,
+        interval: sqltypes.Interval,
+        **kw: Any,  # type: ignore[override]
     ) -> INTERVAL:
         return INTERVAL(precision=interval.second_precision)
 
