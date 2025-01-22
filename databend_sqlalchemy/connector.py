@@ -192,7 +192,10 @@ class Cursor:
         """Fetch the next row of a query result set, returning a single sequence, or ``None`` when
         no more data is available."""
         try:
-            return self.inner.fetchone()
+            row = self.inner.fetchone()
+            if row is None:
+                return None
+            return row.values()
         except Exception as e:
             raise Error(str(e)) from e
 
@@ -206,7 +209,8 @@ class Cursor:
         specified number of rows not being available, fewer rows may be returned.
         """
         try:
-            return self.inner.fetchmany(size)
+            rows = self.inner.fetchmany(size)
+            return [row.values() for row in rows]
         except Exception as e:
             raise Error(str(e)) from e
 
@@ -215,7 +219,8 @@ class Cursor:
         (e.g. a list of tuples).
         """
         try:
-            return self.inner.fetchall()
+            rows = self.inner.fetchall()
+            return [row.values() for row in rows]
         except Exception as e:
             raise Error(str(e)) from e
 
