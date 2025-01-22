@@ -194,6 +194,7 @@ class Cursor:
             row = self.inner.fetchone()
             if row is None:
                 return None
+            print("--> fetchone:", row.values())
             return row.values()
         except Exception as e:
             raise Error(str(e)) from e
@@ -209,6 +210,7 @@ class Cursor:
         """
         try:
             rows = self.inner.fetchmany(size)
+            print("--> fetchmany:", [row.values() for row in rows])
             return [row.values() for row in rows]
         except Exception as e:
             raise Error(str(e)) from e
@@ -219,6 +221,7 @@ class Cursor:
         """
         try:
             rows = self.inner.fetchall()
+            print("--> fetchall:", [row.values() for row in rows])
             return [row.values() for row in rows]
         except Exception as e:
             raise Error(str(e)) from e
