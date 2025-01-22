@@ -4,6 +4,7 @@
 #
 # Many docstrings in this file are based on the PEP, which is in the public domain.
 import decimal
+import re
 from datetime import datetime, date, time, timedelta
 from databend_sqlalchemy.errors import Error, NotSupportedError
 
@@ -182,8 +183,30 @@ class Cursor:
 
         Return values are not defined.
         """
-        for parameters in seq_of_parameters:
-            self.execute(operation, parameters)
+        values_list = []
+        RE_INSERT_VALUES = re.compile(
+            r"\s*((?:INSERT|REPLACE)\s.+\sVALUES?\s*)"
+            + r"(\(\s*(?:%s|%\(.+\)s)\s*(?:,\s*(?:%s|%\(.+\)s)\s*)*\))"
+            + r"(\s*(?:ON DUPLICATE.*)?);?\s*\Z",
+            re.IGNORECASE | re.DOTALL,
+        )
+
+        m = RE_INSERT_VALUES.match(operation)
+        if m:
+            try:
+                q_prefix = m.group(1)
+                q_values = m.group(2).rstrip()
+
+                for parameters in seq_of_parameters:
+                    values_list.append(q_values % _escaper.escape_args(parameters))
+                query = "{} {};".format(q_prefix, ",".join(values_list))
+                self.inner.execute(query)
+            except Exception as e:
+                # We have to raise dbAPI error
+                raise Error(str(e)) from e
+        else:
+            for parameters in seq_of_parameters:
+                self.execute(operation, parameters, is_response=False)
 
     def fetchone(self):
         """Fetch the next row of a query result set, returning a single sequence, or ``None`` when
