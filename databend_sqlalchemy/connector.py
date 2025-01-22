@@ -170,9 +170,6 @@ class Cursor:
         try:
             query = self.mogrify(operation, parameters)
             query = query.replace("%%", "%")
-        except Exception as e:
-            raise Error(str(e)) from e
-        try:
             return self.inner.execute(query)
         except Exception as e:
             raise Error(str(e)) from e
