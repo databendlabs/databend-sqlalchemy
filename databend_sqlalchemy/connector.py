@@ -167,10 +167,10 @@ class Cursor:
         if operation == "":
             return
 
+        print("--> execute:", operation, "-->", parameters)
         try:
             query = self.mogrify(operation, parameters)
             query = query.replace("%%", "%")
-            print("--> query:", query)
             return self.inner.execute(query)
         except Exception as e:
             raise Error(str(e)) from e
@@ -183,6 +183,7 @@ class Cursor:
 
         Return values are not defined.
         """
+        print("--> executemany:", operation, "-->", seq_of_parameters)
         for parameters in seq_of_parameters:
             self.execute(operation, parameters)
 
