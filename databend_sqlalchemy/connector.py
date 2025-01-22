@@ -4,7 +4,6 @@
 #
 # Many docstrings in this file are based on the PEP, which is in the public domain.
 import decimal
-import re
 from datetime import datetime, date, time, timedelta
 from databend_sqlalchemy.errors import Error, NotSupportedError
 
