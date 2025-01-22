@@ -143,10 +143,16 @@ class Cursor:
         The ``type_code`` can be interpreted by comparing it to the Type Objects specified in the
         section below.
         """
-        return []
+        try:
+            return self.inner.description
+        except Exception as e:
+            raise Error(str(e)) from e
 
     def close(self):
-        self.inner.close()
+        try:
+            self.inner.close()
+        except Exception as e:
+            raise Error(str(e)) from e
 
     def mogrify(self, query, parameters):
         if parameters:
@@ -185,7 +191,10 @@ class Cursor:
     def fetchone(self):
         """Fetch the next row of a query result set, returning a single sequence, or ``None`` when
         no more data is available."""
-        return self.inner.fetchone()
+        try:
+            return self.inner.fetchone()
+        except Exception as e:
+            raise Error(str(e)) from e
 
     def fetchmany(self, size=None):
         """Fetch the next set of rows of a query result, returning a sequence of sequences (e.g. a
@@ -196,30 +205,34 @@ class Cursor:
         fetch as many rows as indicated by the size parameter. If this is not possible due to the
         specified number of rows not being available, fewer rows may be returned.
         """
-        return self.inner.fetchmany(size)
+        try:
+            return self.inner.fetchmany(size)
+        except Exception as e:
+            raise Error(str(e)) from e
 
     def fetchall(self):
         """Fetch all (remaining) rows of a query result, returning them as a sequence of sequences
         (e.g. a list of tuples).
         """
-        return self.inner.fetchall()
+        try:
+            return self.inner.fetchall()
+        except Exception as e:
+            raise Error(str(e)) from e
 
     def __next__(self):
         """Return the next row from the currently executing SQL statement using the same semantics
         as :py:meth:`fetchone`. A ``StopIteration`` exception is raised when the result set is
         exhausted.
         """
-        return self.inner.__next__()
+        try:
+            return self.inner.__next__()
+        except StopIteration as e:
+            raise e
+        except Exception as e:
+            raise Error(str(e)) from e
 
-    def next(self):
-        return self.__next__()
+    next = __next__
 
     def __iter__(self):
         """Return self to make cursors compatible to the iteration protocol."""
         return self
-
-    def cancel(self):
-        pass
-
-    def poll(self):
-        pass
