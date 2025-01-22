@@ -200,7 +200,7 @@ class Cursor:
                 for parameters in seq_of_parameters:
                     values_list.append(q_values % _escaper.escape_args(parameters))
                 query = "{} {};".format(q_prefix, ",".join(values_list))
-                self.inner.execute(query)
+                return self.inner.execute(query)
             except Exception as e:
                 # We have to raise dbAPI error
                 raise Error(str(e)) from e
