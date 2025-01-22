@@ -206,7 +206,7 @@ class Cursor:
                 raise Error(str(e)) from e
         else:
             for parameters in seq_of_parameters:
-                self.execute(operation, parameters, is_response=False)
+                self.execute(operation, parameters)
 
     def fetchone(self):
         """Fetch the next row of a query result set, returning a single sequence, or ``None`` when
