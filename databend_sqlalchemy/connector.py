@@ -164,7 +164,7 @@ class Cursor:
 
         # ToDo - Fix this, which is preventing the execution of blank DDL sunch as CREATE INDEX statements which aren't currently supported
         # Seems hard to fix when statements are coming from metadata.create_all()
-        if operation == "":
+        if not operation:
             return
 
         try:
