@@ -62,8 +62,12 @@ from sqlalchemy.engine import ExecutionContext, default
 from sqlalchemy.exc import DBAPIError, NoSuchTableError
 
 from .dml import (
-    Merge, StageClause, _StorageClause, GoogleCloudStorage,
-    AzureBlobStorage, AmazonS3
+    Merge,
+    StageClause,
+    _StorageClause,
+    GoogleCloudStorage,
+    AzureBlobStorage,
+    AmazonS3,
 )
 from .types import INTERVAL
 
@@ -978,13 +982,10 @@ class DatabendCompiler(PGCompiler):
         else:
             source = f"({copy_into.from_._compiler_dispatch(self, **kw)})"
 
-        result = (
-            f"COPY INTO {target}"
-            f" FROM {source}"
-        )
-        if hasattr(copy_into, 'files') and isinstance(copy_into.files, list):
+        result = f"COPY INTO {target}" f" FROM {source}"
+        if hasattr(copy_into, "files") and isinstance(copy_into.files, list):
             result += f"FILES = {', '.join([f for f in copy_into.files])}"
-        if hasattr(copy_into, 'pattern') and copy_into.pattern:
+        if hasattr(copy_into, "pattern") and copy_into.pattern:
             result += f" PATTERN = '{copy_into.pattern}'"
         if not isinstance(copy_into.file_format, NoneType):
             result += f" {copy_into.file_format._compiler_dispatch(self, **kw)}\n"
@@ -1002,27 +1003,26 @@ class DatabendCompiler(PGCompiler):
             return f"FILE_FORMAT=(format_name = {file_format.options['format_name']})"
         # format specifics
         format_options = [f"TYPE = {file_format.format_type}"]
-        format_options.extend([
-            "{} = {}".format(
-                option,
-                (
-                    value._compiler_dispatch(self, **kw)
-                    if hasattr(value, "_compiler_dispatch")
-                    else str(value)
-                ),
-            )
-            for option, value in options_list
-        ])
+        format_options.extend(
+            [
+                "{} = {}".format(
+                    option,
+                    (
+                        value._compiler_dispatch(self, **kw)
+                        if hasattr(value, "_compiler_dispatch")
+                        else str(value)
+                    ),
+                )
+                for option, value in options_list
+            ]
+        )
         return f"FILE_FORMAT = ({', '.join(format_options)})"
 
     def visit_copy_into_options(self, copy_into_options, **kw):
         options_list = list(copy_into_options.options.items())
         # if kw.get("deterministic", False):
         #     options_list.sort(key=operator.itemgetter(0))
-        return "\n".join([
-            f"{k} = {v}"
-            for k, v in options_list
-        ])
+        return "\n".join([f"{k} = {v}" for k, v in options_list])
 
     def visit_file_column(self, file_column_clause, **kw):
         if isinstance(file_column_clause.from_, (TableClause,)):
@@ -1034,15 +1034,19 @@ class DatabendCompiler(PGCompiler):
         if isinstance(file_column_clause.columns, str):
             select_str = file_column_clause.columns
         else:
-            select_str = ",".join([col._compiler_dispatch(self, **kw) for col in file_column_clause.columns])
-        return (
-            f"SELECT {select_str}"
-            f" FROM {source}"
-        )
+            select_str = ",".join(
+                [
+                    col._compiler_dispatch(self, **kw)
+                    for col in file_column_clause.columns
+                ]
+            )
+        return f"SELECT {select_str}" f" FROM {source}"
 
     def visit_amazon_s3(self, amazon_s3: AmazonS3, **kw):
         connection_params_str = f"  ACCESS_KEY_ID = '{amazon_s3.access_key_id}' \n"
-        connection_params_str += f"  SECRET_ACCESS_KEY = '{amazon_s3.secret_access_key}'\n"
+        connection_params_str += (
+            f"  SECRET_ACCESS_KEY = '{amazon_s3.secret_access_key}'\n"
+        )
         if amazon_s3.endpoint_url:
             connection_params_str += f"  ENDPOINT_URL = '{amazon_s3.endpoint_url}' \n"
         if amazon_s3.enable_virtual_host_style:
@@ -1052,7 +1056,9 @@ class DatabendCompiler(PGCompiler):
         if amazon_s3.region:
             connection_params_str += f"  REGION = '{amazon_s3.region}'\n"
         if amazon_s3.security_token:
-            connection_params_str += f"  SECURITY_TOKEN = '{amazon_s3.security_token}'\n"
+            connection_params_str += (
+                f"  SECURITY_TOKEN = '{amazon_s3.security_token}'\n"
+            )
 
         return (
             f"'{amazon_s3.uri}' \n"
