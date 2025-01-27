@@ -11,7 +11,7 @@ from sqlalchemy import testing
 from sqlalchemy import types as sqltypes
 
 # from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.testing import config
+from sqlalchemy.testing import config, AssertsCompiledSQL
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing.assertions import assert_raises
 from sqlalchemy.testing.assertions import eq_
@@ -19,7 +19,7 @@ from sqlalchemy.testing.assertions import eq_
 from databend_sqlalchemy import Merge
 
 
-class MergeIntoTest(fixtures.TablesTest):
+class MergeIntoTest(fixtures.TablesTest, AssertsCompiledSQL):
     __backend__ = True
     run_define_tables = "each"
 
@@ -169,6 +169,11 @@ class MergeIntoTest(fixtures.TablesTest):
 
         merge = Merge(users, users_xtra, users.c.id == users_xtra.c.id)
         merge.when_not_matched_then_insert()
+
+        self.assert_compile(
+            merge,
+            'MERGE INTO "users" USING (SELECT users_xtra.id AS id, users_xtra.name AS name, users_xtra.login_email AS login_email FROM users_xtra) AS users_xtra ON "users".id = users_xtra.id WHEN NOT MATCHED THEN INSERT *',
+        )
 
         result = connection.execute(merge)
         eq_(

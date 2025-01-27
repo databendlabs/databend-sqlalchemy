@@ -76,6 +76,8 @@ class Merge(UpdateBase):
     __visit_name__ = "merge"
     _bind = None
 
+    inherit_cache = False
+
     def __init__(self, target, source, on):
         if not isinstance(source, (TableClause, Select, Subquery)):
             raise Exception(f"Invalid type for merge source: {source}")

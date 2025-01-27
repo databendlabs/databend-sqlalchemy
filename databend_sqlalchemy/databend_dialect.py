@@ -906,13 +906,17 @@ class DatabendCompiler(PGCompiler):
             )
         elif isinstance(merge.source, Subquery):
             source = merge.source._compiler_dispatch(self, **source_kw)
+        else:
+            source = merge.source
+
+        merge_on = merge.on._compiler_dispatch(self, **kw)
 
         target_table = self.preparer.format_table(merge.target)
         return (
             f"MERGE INTO {target_table}\n"
             f" USING {source}\n"
-            f" ON {merge.on}\n"
-            f"{clauses if clauses else ''}"
+            f" ON {merge_on}\n"
+            f" {clauses if clauses else ''}"
         )
 
     def visit_when_merge_matched_update(self, merge_matched_update, **kw):
@@ -921,7 +925,7 @@ class DatabendCompiler(PGCompiler):
             if merge_matched_update.predicate is not None
             else ""
         )
-        update_str = f"WHEN MATCHED{case_predicate} THEN\n" f"\tUPDATE"
+        update_str = f"WHEN MATCHED{case_predicate} THEN\n UPDATE"
         if not merge_matched_update.set:
             return f"{update_str} *"
 
@@ -950,7 +954,7 @@ class DatabendCompiler(PGCompiler):
             if merge_unmatched.predicate is not None
             else ""
         )
-        insert_str = f"WHEN NOT MATCHED{case_predicate} THEN\n" f"\tINSERT"
+        insert_str = f"WHEN NOT MATCHED{case_predicate} THEN\n INSERT"
         if not merge_unmatched.set:
             return f"{insert_str} *"
 
