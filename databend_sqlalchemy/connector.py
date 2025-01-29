@@ -163,7 +163,7 @@ class Cursor:
     def execute(self, operation, parameters=None):
         """Prepare and execute a database operation (query or command)."""
 
-        # ToDo - Fix this, which is preventing the execution of blank DDL sunch as CREATE INDEX statements which aren't currently supported
+        # ToDo - Fix this, which is preventing the execution of blank DDL such as CREATE INDEX statements which aren't currently supported
         # Seems hard to fix when statements are coming from metadata.create_all()
         if not operation:
             return

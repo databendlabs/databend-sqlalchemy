@@ -9,16 +9,17 @@ from sqlalchemy import String
 from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy import types as sqltypes
+
 # from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.testing import config
+from sqlalchemy.testing import config, AssertsCompiledSQL
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing.assertions import assert_raises
 from sqlalchemy.testing.assertions import eq_
 
-from databend_sqlalchemy.databend_dialect import Merge
+from databend_sqlalchemy import Merge
 
 
-class MergeIntoTest(fixtures.TablesTest):
+class MergeIntoTest(fixtures.TablesTest, AssertsCompiledSQL):
     __backend__ = True
     run_define_tables = "each"
 
@@ -48,16 +49,22 @@ class MergeIntoTest(fixtures.TablesTest):
             Column("login_email", String(50)),
         )
 
-
     def test_no_action_raises(self, connection):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users.insert(), dict(id=2, name="name2", login_email="email2"))
-        connection.execute(users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1"))
-        connection.execute(users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2"))
-
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users.insert(), dict(id=2, name="name2", login_email="email2")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2")
+        )
 
         merge = Merge(users, users_xtra, users.c.id == users_xtra.c.id)
 
@@ -71,20 +78,28 @@ class MergeIntoTest(fixtures.TablesTest):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1"))
-        connection.execute(users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2"))
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2")
+        )
 
         select_source = users_xtra.select().where(users_xtra.c.id != 99)
-        merge = Merge(users, select_source, users.c.id == select_source.selected_columns.id)
-        merge.when_matched_then_update().values(name=select_source.selected_columns.name)
+        merge = Merge(
+            users, select_source, users.c.id == select_source.selected_columns.id
+        )
+        merge.when_matched_then_update().values(
+            name=select_source.selected_columns.name
+        )
         merge.when_not_matched_then_insert()
 
         result = connection.execute(merge)
         eq_(
-            connection.execute(
-                users.select().order_by(users.c.id)
-            ).fetchall(),
+            connection.execute(users.select().order_by(users.c.id)).fetchall(),
             [(1, "newname1", "email1"), (2, "newname2", "newemail2")],
         )
 
@@ -92,20 +107,24 @@ class MergeIntoTest(fixtures.TablesTest):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1"))
-        connection.execute(users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2"))
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2")
+        )
 
-        alias_source = users_xtra.select().where(users_xtra.c.id != 99).alias('x')
+        alias_source = users_xtra.select().where(users_xtra.c.id != 99).alias("x")
         merge = Merge(users, alias_source, users.c.id == alias_source.c.id)
         merge.when_matched_then_update().values(name=alias_source.c.name)
         merge.when_not_matched_then_insert()
 
         result = connection.execute(merge)
         eq_(
-            connection.execute(
-                users.select().order_by(users.c.id)
-            ).fetchall(),
+            connection.execute(users.select().order_by(users.c.id)).fetchall(),
             [(1, "newname1", "email1"), (2, "newname2", "newemail2")],
         )
 
@@ -113,9 +132,15 @@ class MergeIntoTest(fixtures.TablesTest):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1"))
-        connection.execute(users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2"))
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2")
+        )
 
         subquery_source = users_xtra.select().where(users_xtra.c.id != 99).subquery()
         merge = Merge(users, subquery_source, users.c.id == subquery_source.c.id)
@@ -124,9 +149,7 @@ class MergeIntoTest(fixtures.TablesTest):
 
         result = connection.execute(merge)
         eq_(
-            connection.execute(
-                users.select().order_by(users.c.id)
-            ).fetchall(),
+            connection.execute(users.select().order_by(users.c.id)).fetchall(),
             [(1, "newname1", "email1"), (2, "newname2", "newemail2")],
         )
 
@@ -134,18 +157,27 @@ class MergeIntoTest(fixtures.TablesTest):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1"))
-        connection.execute(users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2"))
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2")
+        )
 
         merge = Merge(users, users_xtra, users.c.id == users_xtra.c.id)
         merge.when_not_matched_then_insert()
 
+        self.assert_compile(
+            merge,
+            'MERGE INTO "users" USING (SELECT users_xtra.id AS id, users_xtra.name AS name, users_xtra.login_email AS login_email FROM users_xtra) AS users_xtra ON "users".id = users_xtra.id WHEN NOT MATCHED THEN INSERT *',
+        )
+
         result = connection.execute(merge)
         eq_(
-            connection.execute(
-                users.select().order_by(users.c.id)
-            ).fetchall(),
+            connection.execute(users.select().order_by(users.c.id)).fetchall(),
             [(1, "name1", "email1"), (2, "newname2", "newemail2")],
         )
 
@@ -153,18 +185,22 @@ class MergeIntoTest(fixtures.TablesTest):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users.insert(), dict(id=2, name="name2", login_email="email2"))
-        connection.execute(users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1"))
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users.insert(), dict(id=2, name="name2", login_email="email2")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1")
+        )
 
         merge = Merge(users, users_xtra, users.c.id == users_xtra.c.id)
         merge.when_matched_then_update()
 
         result = connection.execute(merge)
         eq_(
-            connection.execute(
-                users.select().order_by(users.c.id)
-            ).fetchall(),
+            connection.execute(users.select().order_by(users.c.id)).fetchall(),
             [(1, "newname1", "newemail1"), (2, "name2", "email2")],
         )
 
@@ -172,18 +208,22 @@ class MergeIntoTest(fixtures.TablesTest):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users.insert(), dict(id=2, name="name2", login_email="email2"))
-        connection.execute(users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1"))
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users.insert(), dict(id=2, name="name2", login_email="email2")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1")
+        )
 
         merge = Merge(users, users_xtra, users.c.id == users_xtra.c.id)
         merge.when_matched_then_update().values(name=users_xtra.c.name)
 
         result = connection.execute(merge)
         eq_(
-            connection.execute(
-                users.select().order_by(users.c.id)
-            ).fetchall(),
+            connection.execute(users.select().order_by(users.c.id)).fetchall(),
             [(1, "newname1", "email1"), (2, "name2", "email2")],
         )
 
@@ -191,19 +231,25 @@ class MergeIntoTest(fixtures.TablesTest):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users.insert(), dict(id=2, name="name2", login_email="email2"))
-        connection.execute(users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1"))
-        connection.execute(users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2"))
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users.insert(), dict(id=2, name="name2", login_email="email2")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2")
+        )
 
         merge = Merge(users, users_xtra, users.c.id == users_xtra.c.id)
         merge.when_matched_then_update().where(users_xtra.c.id != 1)
 
         result = connection.execute(merge)
         eq_(
-            connection.execute(
-                users.select().order_by(users.c.id)
-            ).fetchall(),
+            connection.execute(users.select().order_by(users.c.id)).fetchall(),
             [(1, "name1", "email1"), (2, "newname2", "newemail2")],
         )
 
@@ -211,19 +257,27 @@ class MergeIntoTest(fixtures.TablesTest):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users.insert(), dict(id=2, name="name2", login_email="email2"))
-        connection.execute(users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1"))
-        connection.execute(users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2"))
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users.insert(), dict(id=2, name="name2", login_email="email2")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2")
+        )
 
         merge = Merge(users, users_xtra, users.c.id == users_xtra.c.id)
-        merge.when_matched_then_update().where(users_xtra.c.id != 1).values(name=users_xtra.c.name)
+        merge.when_matched_then_update().where(users_xtra.c.id != 1).values(
+            name=users_xtra.c.name
+        )
 
         result = connection.execute(merge)
         eq_(
-            connection.execute(
-                users.select().order_by(users.c.id)
-            ).fetchall(),
+            connection.execute(users.select().order_by(users.c.id)).fetchall(),
             [(1, "name1", "email1"), (2, "newname2", "email2")],
         )
 
@@ -231,18 +285,22 @@ class MergeIntoTest(fixtures.TablesTest):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users.insert(), dict(id=2, name="name2", login_email="email2"))
-        connection.execute(users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2"))
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users.insert(), dict(id=2, name="name2", login_email="email2")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2")
+        )
 
         merge = Merge(users, users_xtra, users.c.id == users_xtra.c.id)
         merge.when_matched_then_delete()
 
         result = connection.execute(merge)
         eq_(
-            connection.execute(
-                users.select().order_by(users.c.id)
-            ).fetchall(),
+            connection.execute(users.select().order_by(users.c.id)).fetchall(),
             [(1, "name1", "email1")],
         )
 
@@ -250,11 +308,21 @@ class MergeIntoTest(fixtures.TablesTest):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users.insert(), dict(id=2, name="name2", login_email="email2"))
-        connection.execute(users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1"))
-        connection.execute(users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2"))
-        connection.execute(users_xtra.insert(), dict(id=3, name="newname3", login_email="newemail3"))
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users.insert(), dict(id=2, name="name2", login_email="email2")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=3, name="newname3", login_email="newemail3")
+        )
 
         merge = Merge(users, users_xtra, users.c.id == users_xtra.c.id)
         merge.when_matched_then_update().where(users_xtra.c.id == 1)
@@ -263,9 +331,7 @@ class MergeIntoTest(fixtures.TablesTest):
 
         result = connection.execute(merge)
         eq_(
-            connection.execute(
-                users.select().order_by(users.c.id)
-            ).fetchall(),
+            connection.execute(users.select().order_by(users.c.id)).fetchall(),
             [(1, "newname1", "newemail1"), (3, "newname3", "newemail3")],
         )
 
@@ -273,22 +339,28 @@ class MergeIntoTest(fixtures.TablesTest):
         users = self.tables.users
         users_xtra = self.tables.users_xtra
 
-        connection.execute(users.insert(), dict(id=1, name="name1", login_email="email1"))
-        connection.execute(users.insert(), dict(id=2, name="name2", login_email="email2"))
-        connection.execute(users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1"))
-        connection.execute(users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2"))
-
+        connection.execute(
+            users.insert(), dict(id=1, name="name1", login_email="email1")
+        )
+        connection.execute(
+            users.insert(), dict(id=2, name="name2", login_email="email2")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=1, name="newname1", login_email="newemail1")
+        )
+        connection.execute(
+            users_xtra.insert(), dict(id=2, name="newname2", login_email="newemail2")
+        )
 
         merge = Merge(users, users_xtra, users.c.id == users_xtra.c.id)
         merge.when_not_matched_then_insert().where(users_xtra.c.id == 99)
 
         result = connection.execute(merge)
         eq_(
-            connection.execute(
-                users.select().order_by(users.c.id)
-            ).fetchall(),
+            connection.execute(users.select().order_by(users.c.id)).fetchall(),
             [(1, "name1", "email1"), (2, "name2", "email2")],
         )
+
     #
     # def test_selectable_source_when_not_matched_insert(self, connection):
     #     users = self.tables.users
