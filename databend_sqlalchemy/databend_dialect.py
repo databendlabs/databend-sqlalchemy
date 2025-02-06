@@ -1102,6 +1102,11 @@ class DatabendExecutionContext(default.DefaultExecutionContext):
     def create_default_cursor(self):
         return self._dbapi_connection.cursor()
 
+    def post_exec(self):
+        if self.isinsert or self.isupdate or self.isdelete:
+            r = self.cursor.fetchall()
+            self._rowcount = r[0][0]
+
 
 class DatabendTypeCompiler(compiler.GenericTypeCompiler):
     def visit_ARRAY(self, type_, **kw):
