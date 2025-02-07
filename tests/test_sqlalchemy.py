@@ -17,6 +17,7 @@ from sqlalchemy.testing.suite import JoinTest as _JoinTest
 from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
 from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursorsTest
 from sqlalchemy.testing.suite import EnumTest as _EnumTest
+from sqlalchemy.testing.suite import CTETest as _CTETest
 from sqlalchemy import types as sql_types
 from sqlalchemy import testing, select
 from sqlalchemy.testing import config, eq_
@@ -286,3 +287,23 @@ class EnumTest(_EnumTest):
     @testing.skip("databend")  # Skipped because no supporting enums yet
     def test_round_trip_executemany(self, connection):
         pass
+
+class CTETest(_CTETest):
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "some_table",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("data", String(50)),
+            Column("parent_id", Integer),
+        )
+
+        Table(
+            "some_other_table",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("data", String(50)),
+            Column("parent_id", Integer),
+        )
+

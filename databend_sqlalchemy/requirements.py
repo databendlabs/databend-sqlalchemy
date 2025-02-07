@@ -204,3 +204,27 @@ class Requirements(SuiteRequirements):
     def reflect_table_options(self):
         """Target database must support reflecting table_options."""
         return exclusions.open()
+
+    @property
+    def ctes(self):
+        """Target database supports CTEs"""
+        return exclusions.open()
+
+    @property
+    def ctes_with_update_delete(self):
+        """target database supports CTES that ride on top of a normal UPDATE
+        or DELETE statement which refers to the CTE in a correlated subquery.
+
+        """
+        return exclusions.open()
+
+    @property
+    def update_from(self):
+        """Target must support UPDATE..FROM syntax"""
+        return exclusions.closed()
+
+
+    @property
+    def delete_from(self):
+        """Target must support DELETE FROM..FROM or DELETE..USING syntax"""
+        return exclusions.closed()
