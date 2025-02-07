@@ -800,6 +800,9 @@ class DatabendIdentifierPreparer(PGIdentifierPreparer):
 
 
 class DatabendCompiler(PGCompiler):
+    iscopyintotable: bool = False
+    iscopyintolocation: bool = False
+
     def get_select_precolumns(self, select, **kw):
         # call the base implementation because Databend doesn't support DISTINCT ON
         return super(PGCompiler, self).get_select_precolumns(select, **kw)
@@ -971,6 +974,11 @@ class DatabendCompiler(PGCompiler):
         )
 
     def visit_copy_into(self, copy_into, **kw):
+        if isinstance(copy_into.target, (TableClause,)):
+            self.iscopyintotable = True
+        else:
+            self.iscopyintolocation = True
+
         target = (
             self.preparer.format_table(copy_into.target)
             if isinstance(copy_into.target, (TableClause,))
@@ -1090,8 +1098,21 @@ class DatabendCompiler(PGCompiler):
             f")"
         )
 
+    def visit_stage(self, stage, **kw):
+        if stage.path:
+            return f"@{stage.name}/{stage.path}"
+        return f"@{stage.name}"
+
 
 class DatabendExecutionContext(default.DefaultExecutionContext):
+    iscopyintotable = False
+    iscopyintolocation = False
+
+    _copy_input_bytes: Optional[int] = None
+    _copy_output_bytes: Optional[int] = None
+    _copy_into_table_results: Optional[list[dict]] = None
+    _copy_into_location_results: dict = None
+
     @sa_util.memoized_property
     def should_autocommit(self):
         return False  # No DML supported, never autocommit
@@ -1103,9 +1124,36 @@ class DatabendExecutionContext(default.DefaultExecutionContext):
         return self._dbapi_connection.cursor()
 
     def post_exec(self):
-        if self.isinsert or self.isupdate or self.isdelete:
-            r = self.cursor.fetchall()
-            self._rowcount = r[0][0]
+        self.iscopyintotable = getattr(self.compiled, 'iscopyintotable', False)
+        self.iscopyintolocation = getattr(self.compiled, 'iscopyintolocation', False)
+        if (self.isinsert or self.isupdate or self.isdelete or
+            self.iscopyintolocation or self.iscopyintotable):
+            result = self.cursor.fetchall()
+            if self.iscopyintotable:
+                self._copy_into_table_results = [
+                    {
+                        'file': row[0],
+                        'rows_loaded': row[1],
+                        'errors_seen': row[2],
+                        'first_error': row[3],
+                        'first_error_line': row[4],
+                    } for row in result
+                ]
+                self._rowcount = sum(c['rows_loaded'] for c in self._copy_into_table_results)
+            else:
+                self._rowcount = result[0][0]
+                if self.iscopyintolocation:
+                    self._copy_into_location_results = {
+                        'rows_unloaded': result[0][0],
+                        'input_bytes': result[0][1],
+                        'output_bytes': result[0][2],
+                    }
+
+    def copy_into_table_results(self) -> list[dict]:
+        return self._copy_into_table_results
+
+    def copy_into_location_results(self) -> dict:
+        return self._copy_into_location_results
 
 
 class DatabendTypeCompiler(compiler.GenericTypeCompiler):
