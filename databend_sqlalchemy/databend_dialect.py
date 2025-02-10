@@ -670,7 +670,7 @@ class DatabendDate(sqltypes.DATE):
 class DatabendDateTime(sqltypes.DATETIME):
     __visit_name__ = "DATETIME"
 
-    _reg = re.compile(r"(\d+)-(\d+)-(\d+) (\d+):(\d+):(\d+)")
+    _reg = re.compile(r"(\d+)-(\d+)-(\d+) (\d+):(\d+):(\d+)\.(\d+)")
 
     def result_processor(self, dialect, coltype):
         def process(value):
@@ -698,7 +698,7 @@ class DatabendDateTime(sqltypes.DATETIME):
 class DatabendTime(sqltypes.TIME):
     __visit_name__ = "TIME"
 
-    _reg = re.compile(r"(?:\d+)-(?:\d+)-(?:\d+) (\d+):(\d+):(\d+)")
+    _reg = re.compile(r"(?:\d+)-(?:\d+)-(?:\d+) (\d+):(\d+):(\d+)\.(\d+)")
 
     def result_processor(self, dialect, coltype):
         def process(value):
@@ -720,7 +720,7 @@ class DatabendTime(sqltypes.TIME):
         def process(value):
             if value is not None:
                 from_min_value = datetime.datetime.combine(
-                    datetime.date(1000, 1, 1), value
+                    datetime.date(1970, 1, 1), value
                 )
                 time_str = from_min_value.isoformat(timespec="microseconds")
                 return f"'{time_str}'"
@@ -1257,7 +1257,7 @@ class DatabendDialect(default.DefaultDialect):
     supports_alter = True
     supports_comments = False
     supports_empty_insert = False
-    supports_is_distinct_from = False
+    supports_is_distinct_from = True
     supports_multivalues_insert = True
 
     supports_statement_cache = False

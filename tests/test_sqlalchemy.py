@@ -18,6 +18,7 @@ from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _Bizarr
 from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursorsTest
 from sqlalchemy.testing.suite import EnumTest as _EnumTest
 from sqlalchemy.testing.suite import CTETest as _CTETest
+from sqlalchemy.testing.suite import JSONTest as _JSONTest
 from sqlalchemy import types as sql_types
 from sqlalchemy import testing, select
 from sqlalchemy.testing import config, eq_
@@ -307,3 +308,22 @@ class CTETest(_CTETest):
             Column("parent_id", Integer),
         )
 
+    @testing.skip("databend")  # Skipped because of bug in Databend https://github.com/databendlabs/databend/issues/17432
+    def test_select_recursive_round_trip(self, connection):
+        pass
+
+class JSONTest(_JSONTest):
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "data_table",
+            metadata,
+            Column("id", Integer), #, primary_key=True), # removed use of primary key to get test to work
+            Column("name", String(30), nullable=False),
+            Column("data", cls.datatype, nullable=False),
+            Column("nulldata", cls.datatype(none_as_null=True)),
+        )
+
+    # ToDo - this does not yet work
+    def test_path_typed_comparison(self, datatype, value):
+        pass
