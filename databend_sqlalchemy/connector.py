@@ -49,8 +49,13 @@ class ParamEscaper:
             return self.escape_number(item)
         elif isinstance(item, timedelta):
             return self.escape_string(f"{item.total_seconds()} seconds") + "::interval"
-        elif isinstance(item, (datetime, date, time, timedelta)):
-            return self.escape_string(item.strftime("%Y-%m-%d %H:%M:%S"))
+        elif isinstance(item, time):
+            # N.B. Date here must match date in DatabendTime.literal_processor - 1970-01-01
+            return self.escape_string(item.strftime("1970-01-01 %H:%M:%S.%f")) + "::timestamp"
+        elif isinstance(item, datetime):
+            return self.escape_string(item.strftime("%Y-%m-%d %H:%M:%S.%f")) + "::timestamp"
+        elif isinstance(item, date):
+            return self.escape_string(item.strftime("%Y-%m-%d")) + "::date"
         else:
             return self.escape_string(item)
 

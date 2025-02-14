@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from sqlalchemy.testing import config, fixture, fixtures, util
+from sqlalchemy.testing import config, fixture, fixtures, eq_
 from sqlalchemy.testing.assertions import AssertsCompiledSQL
 from sqlalchemy import (
     Table,
@@ -12,17 +12,20 @@ from sqlalchemy import (
     schema,
     cast,
     literal_column,
+    text,
 )
 
 from databend_sqlalchemy import (
     CopyIntoTable,
     CopyIntoLocation,
     CopyIntoTableOptions,
+    CopyIntoLocationOptions,
     CSVFormat,
     ParquetFormat,
     GoogleCloudStorage,
     Compression,
     FileColumnClause,
+    StageClause,
 )
 
 
@@ -158,3 +161,73 @@ class CompileDatabendCopyIntoTableTest(fixtures.TestBase, AssertsCompiledSQL):
             ),
             checkparams={"1_1": "xyz", "IF_1": "NULL", "IF_2": "NOTNULL"},
         )
+
+
+class CopyIntoResultTest(fixtures.TablesTest):
+    run_create_tables = "each"
+    __backend__ = True
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "random_data",
+            metadata,
+            Column("id", Integer),
+            Column("data", String(50)),
+            databend_engine='Random',
+        )
+        Table(
+            "loaded",
+            metadata,
+            Column("id", Integer),
+            Column("data", String(50)),
+        )
+
+    def test_copy_into_stage_and_table(self, connection):
+        # create stage
+        connection.execute(text('CREATE OR REPLACE STAGE mystage'))
+        # copy into stage from random table limiting 1000
+        table = self.tables.random_data
+        query = table.select().limit(1000)
+
+        copy_into = CopyIntoLocation(
+            target=StageClause(
+                name='mystage'
+            ),
+            from_=query,
+            file_format=ParquetFormat(),
+            options=CopyIntoLocationOptions()
+        )
+        r = connection.execute(
+            copy_into
+        )
+        eq_(r.rowcount, 1000)
+        copy_into_results = r.context.copy_into_location_results()
+        eq_(copy_into_results['rows_unloaded'], 1000)
+        eq_(copy_into_results['input_bytes'], 16250)
+        # eq_(copy_into_results['output_bytes'], 4701) # output bytes differs
+
+        # now copy into table
+
+        copy_into_table = CopyIntoTable(
+            target=self.tables.loaded,
+            from_=StageClause(
+                name='mystage'
+            ),
+            file_format=ParquetFormat(),
+            options=CopyIntoTableOptions()
+        )
+        r = connection.execute(
+            copy_into_table
+        )
+        eq_(r.rowcount, 1000)
+        copy_into_table_results = r.context.copy_into_table_results()
+        assert len(copy_into_table_results) == 1
+        result = copy_into_table_results[0]
+        assert result['file'].endswith('.parquet')
+        eq_(result['rows_loaded'], 1000)
+        eq_(result['errors_seen'], 0)
+        eq_(result['first_error'], None)
+        eq_(result['first_error_line'], None)
+
+

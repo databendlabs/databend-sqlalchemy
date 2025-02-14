@@ -1,7 +1,7 @@
 
 from sqlalchemy.testing.provision import create_db
 from sqlalchemy.testing.provision import drop_db
-from sqlalchemy.testing.provision import configure_follower, update_db_opts
+from sqlalchemy.testing.provision import configure_follower, update_db_opts, temp_table_keyword_args
 
 
 @create_db.for_db("databend")
@@ -31,6 +31,10 @@ def _databend_drop_db(cfg, eng, ident):
         conn.exec_driver_sql("DROP DATABASE IF EXISTS %s_test_schema_2" % ident)
         conn.exec_driver_sql("DROP DATABASE IF EXISTS %s" % ident)
 
+@temp_table_keyword_args.for_db("databend")
+def _databend_temp_table_keyword_args(cfg, eng):
+    return {"prefixes": ["TEMPORARY"]}
+
 
 @configure_follower.for_db("databend")
 def _databend_configure_follower(config, ident):
@@ -39,5 +43,5 @@ def _databend_configure_follower(config, ident):
 
 # Uncomment to debug SQL Statements in tests
 # @update_db_opts.for_db("databend")
-# def _mssql_update_db_opts(db_url, db_opts):
+# def _databend_update_db_opts(db_url, db_opts):
 #     db_opts["echo"] = True
