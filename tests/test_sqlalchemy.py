@@ -3,7 +3,6 @@
 from sqlalchemy.testing.suite import *
 
 from sqlalchemy.testing.suite import ComponentReflectionTestExtra as _ComponentReflectionTestExtra
-from sqlalchemy.testing.suite import ComponentReflectionTest as _ComponentReflectionTest
 from sqlalchemy.testing.suite import DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest
 from sqlalchemy.testing.suite import BooleanTest as _BooleanTest
 from sqlalchemy.testing.suite import BinaryTest as _BinaryTest
@@ -22,12 +21,6 @@ from sqlalchemy.testing.suite import JSONTest as _JSONTest
 from sqlalchemy import types as sql_types
 from sqlalchemy import testing, select
 from sqlalchemy.testing import config, eq_
-
-
-class ComponentReflectionTest(_ComponentReflectionTest):
-    @testing.requires.index_reflection
-    def test_get_indexes(self):
-        pass
 
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
@@ -289,6 +282,7 @@ class EnumTest(_EnumTest):
     def test_round_trip_executemany(self, connection):
         pass
 
+
 class CTETest(_CTETest):
     @classmethod
     def define_tables(cls, metadata):
@@ -297,7 +291,7 @@ class CTETest(_CTETest):
             metadata,
             Column("id", Integer, primary_key=True),
             Column("data", String(50)),
-            Column("parent_id", Integer),
+            Column("parent_id", Integer), # removed use of foreign key to get test to work
         )
 
         Table(
@@ -308,9 +302,6 @@ class CTETest(_CTETest):
             Column("parent_id", Integer),
         )
 
-    @testing.skip("databend")  # Skipped because of bug in Databend https://github.com/databendlabs/databend/issues/17432
-    def test_select_recursive_round_trip(self, connection):
-        pass
 
 class JSONTest(_JSONTest):
     @classmethod
