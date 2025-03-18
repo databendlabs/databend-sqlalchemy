@@ -35,6 +35,18 @@ class Requirements(SuiteRequirements):
         return exclusions.closed()  # Currently no binary type in Databend
 
     @property
+    def comment_reflection(self):
+        """Indicates if the database support table comment reflection"""
+        return exclusions.open()
+
+    @property
+    def comment_reflection_full_unicode(self):
+        """Indicates if the database support table comment reflection in the
+        full unicode range, including emoji etc.
+        """
+        return exclusions.open()
+
+    @property
     def temporary_tables(self):
         """target database supports temporary tables"""
         return exclusions.open()

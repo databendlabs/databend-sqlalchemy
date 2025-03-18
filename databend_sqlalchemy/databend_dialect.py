@@ -30,10 +30,11 @@ import operator
 import datetime
 from types import NoneType
 
+import sqlalchemy.engine.reflection
 import sqlalchemy.types as sqltypes
 from typing import Any, Dict, Optional, Union
 from sqlalchemy import util as sa_util
-from sqlalchemy.engine import reflection
+from sqlalchemy.engine import reflection, ObjectScope, ObjectKind
 from sqlalchemy.sql import (
     compiler,
     text,
@@ -44,6 +45,7 @@ from sqlalchemy.sql import (
     Subquery,
 )
 from sqlalchemy.dialects.postgresql.base import PGCompiler, PGIdentifierPreparer
+from sqlalchemy import Table, MetaData, Column
 from sqlalchemy.types import (
     BIGINT,
     INTEGER,
@@ -1224,6 +1226,12 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
         if engine is not None:
             table_opts.append(f" ENGINE={engine}")
 
+        if table.comment is not None:
+            comment = self.sql_compiler.render_literal_value(
+                table.comment, sqltypes.String()
+            )
+            table_opts.append(f" COMMENT={comment}")
+
         cluster_keys = db_opts.get("cluster_by")
         if cluster_keys is not None:
             if isinstance(cluster_keys, str):
@@ -1244,6 +1252,37 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
         # ToDo - Engine options
 
         return " ".join(table_opts)
+
+    def get_column_specification(self, column, **kwargs):
+        colspec = super().get_column_specification(column, **kwargs)
+        comment = column.comment
+        if comment is not None:
+            literal = self.sql_compiler.render_literal_value(
+                comment, sqltypes.String()
+            )
+            colspec += " COMMENT " + literal
+
+        return colspec
+
+    def visit_set_table_comment(self, create, **kw):
+        return "ALTER TABLE %s COMMENT = %s" % (
+            self.preparer.format_table(create.element),
+            self.sql_compiler.render_literal_value(
+                create.element.comment, sqltypes.String()
+            ),
+        )
+
+    def visit_drop_table_comment(self, create, **kw):
+        return "ALTER TABLE %s COMMENT = ''" % (
+            self.preparer.format_table(create.element)
+        )
+
+    def visit_set_column_comment(self, create, **kw):
+        return "ALTER TABLE %s MODIFY %s %s" % (
+            self.preparer.format_table(create.element.table),
+            self.preparer.format_column(create.element),
+            self.get_column_specification(create.element),
+        )
 
 
 class DatabendDialect(default.DefaultDialect):
@@ -1369,7 +1408,7 @@ class DatabendDialect(default.DefaultDialect):
     def get_columns(self, connection, table_name, schema=None, **kw):
         query = text(
             """
-            select column_name, column_type, is_nullable
+            select column_name, column_type, is_nullable, nullif(column_comment, '')
             from information_schema.columns
             where table_name = :table_name
             and table_schema = :schema_name
@@ -1390,6 +1429,7 @@ class DatabendDialect(default.DefaultDialect):
                 "type": self._get_column_type(row[1]),
                 "nullable": get_is_nullable(row[2]),
                 "default": None,
+                "comment": row[3],
             }
             for row in result
         ]
@@ -1468,6 +1508,23 @@ class DatabendDialect(default.DefaultDialect):
 
         result = connection.execute(query, dict(schema_name=schema))
         return [row[0] for row in result]
+
+    @reflection.cache
+    def get_temp_table_names(self, connection, schema=None, **kw):
+        table_name_query = """
+            select name
+            from system.temporary_tables
+            where database = :schema_name
+            """
+        query = text(table_name_query).bindparams(
+            bindparam("schema_name", type_=sqltypes.Unicode)
+        )
+        if schema is None:
+            schema = self.default_schema_name
+
+        result = connection.execute(query, dict(schema_name=schema))
+        return [row[0] for row in result]
+
 
     @reflection.cache
     def get_view_names(self, connection, schema=None, **kw):
@@ -1562,6 +1619,82 @@ class DatabendDialect(default.DefaultDialect):
         # engine options
 
         return options
+
+    @reflection.cache
+    def get_table_comment(self, connection, table_name, schema, **kw):
+        query_text = """
+            SELECT comment
+            FROM system.tables
+            WHERE database = :schema_name
+            and name = :table_name
+            """
+        query = text(query_text).bindparams(
+            bindparam("table_name", type_=sqltypes.Unicode),
+            bindparam("schema_name", type_=sqltypes.Unicode),
+        )
+        if schema is None:
+            schema = self.default_schema_name
+
+        result = connection.execute(
+            query, dict(table_name=table_name, schema_name=schema)
+        ).one_or_none()
+        if not result:
+            raise NoSuchTableError(
+                f"{self.identifier_preparer.quote_identifier(schema)}."
+                f"{self.identifier_preparer.quote_identifier(table_name)}"
+            )
+        return {'text': result[0]} if result[0] else reflection.ReflectionDefaults.table_comment()
+
+    def _prepare_filter_names(self, filter_names):
+        if filter_names:
+            fn = [name for name in filter_names]
+            return True, {"filter_names": fn}
+        else:
+            return False, {}
+
+    def get_multi_table_comment(
+        self, connection, schema, filter_names, scope, kind, **kw
+    ):
+        meta = MetaData()
+        all_tab_comments=Table(
+            "tables",
+            meta,
+            Column("database", VARCHAR, nullable=False),
+            Column("name", VARCHAR, nullable=False),
+            Column("comment", VARCHAR),
+            Column("table_type", VARCHAR),
+            schema='system',
+        ).alias("a_tab_comments")
+
+
+        has_filter_names, params = self._prepare_filter_names(filter_names)
+        owner = schema or self.default_schema_name
+
+        table_types = set()
+        if ObjectKind.TABLE in kind:
+            table_types.add('BASE TABLE')
+        if ObjectKind.VIEW in kind:
+            table_types.add('VIEW')
+
+        query = select(
+            all_tab_comments.c.name, all_tab_comments.c.comment
+        ).where(
+            all_tab_comments.c.database == owner,
+            all_tab_comments.c.table_type.in_(table_types),
+            sqlalchemy.true() if ObjectScope.DEFAULT in scope else sqlalchemy.false(),
+        )
+        if has_filter_names:
+            query = query.where(all_tab_comments.c.name.in_(bindparam("filter_names")))
+
+        result = connection.execute(query, params)
+        default_comment = reflection.ReflectionDefaults.table_comment
+        return (
+            (
+                (schema, table),
+                {"text": comment} if comment else default_comment(),
+            )
+            for table, comment in result
+        )
 
     def do_rollback(self, dbapi_connection):
         # No transactions
