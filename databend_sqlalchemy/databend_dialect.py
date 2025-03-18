@@ -34,7 +34,7 @@ import sqlalchemy.engine.reflection
 import sqlalchemy.types as sqltypes
 from typing import Any, Dict, Optional, Union
 from sqlalchemy import util as sa_util
-from sqlalchemy.engine import reflection, ObjectScope, ObjectKind
+from sqlalchemy.engine import reflection
 from sqlalchemy.sql import (
     compiler,
     text,
@@ -1643,7 +1643,7 @@ class DatabendDialect(default.DefaultDialect):
                 f"{self.identifier_preparer.quote_identifier(schema)}."
                 f"{self.identifier_preparer.quote_identifier(table_name)}"
             )
-        return {'text': result[0]} if result[0] else reflection.ReflectionDefaults.table_comment()
+        return {'text': result[0]} if result[0] else reflection.ReflectionDefaults.table_comment() if hasattr(reflection, 'ReflectionDefault') else {'text': None}
 
     def _prepare_filter_names(self, filter_names):
         if filter_names:
@@ -1671,9 +1671,9 @@ class DatabendDialect(default.DefaultDialect):
         owner = schema or self.default_schema_name
 
         table_types = set()
-        if ObjectKind.TABLE in kind:
+        if reflection.ObjectKind.TABLE in kind:
             table_types.add('BASE TABLE')
-        if ObjectKind.VIEW in kind:
+        if reflection.ObjectKind.VIEW in kind:
             table_types.add('VIEW')
 
         query = select(
@@ -1681,7 +1681,7 @@ class DatabendDialect(default.DefaultDialect):
         ).where(
             all_tab_comments.c.database == owner,
             all_tab_comments.c.table_type.in_(table_types),
-            sqlalchemy.true() if ObjectScope.DEFAULT in scope else sqlalchemy.false(),
+            sqlalchemy.true() if reflection.ObjectScope.DEFAULT in scope else sqlalchemy.false(),
         )
         if has_filter_names:
             query = query.where(all_tab_comments.c.name.in_(bindparam("filter_names")))
