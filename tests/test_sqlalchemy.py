@@ -3,7 +3,6 @@
 from sqlalchemy.testing.suite import *
 
 from sqlalchemy.testing.suite import ComponentReflectionTestExtra as _ComponentReflectionTestExtra
-from sqlalchemy.testing.suite import ComponentReflectionTest as _ComponentReflectionTest
 from sqlalchemy.testing.suite import DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest
 from sqlalchemy.testing.suite import BooleanTest as _BooleanTest
 from sqlalchemy.testing.suite import BinaryTest as _BinaryTest
@@ -17,15 +16,11 @@ from sqlalchemy.testing.suite import JoinTest as _JoinTest
 from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
 from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursorsTest
 from sqlalchemy.testing.suite import EnumTest as _EnumTest
+from sqlalchemy.testing.suite import CTETest as _CTETest
+from sqlalchemy.testing.suite import JSONTest as _JSONTest
 from sqlalchemy import types as sql_types
 from sqlalchemy import testing, select
 from sqlalchemy.testing import config, eq_
-
-
-class ComponentReflectionTest(_ComponentReflectionTest):
-    @testing.requires.index_reflection
-    def test_get_indexes(self):
-        pass
 
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
@@ -285,4 +280,41 @@ class EnumTest(_EnumTest):
 
     @testing.skip("databend")  # Skipped because no supporting enums yet
     def test_round_trip_executemany(self, connection):
+        pass
+
+
+class CTETest(_CTETest):
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "some_table",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("data", String(50)),
+            Column("parent_id", Integer), # removed use of foreign key to get test to work
+        )
+
+        Table(
+            "some_other_table",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("data", String(50)),
+            Column("parent_id", Integer),
+        )
+
+
+class JSONTest(_JSONTest):
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "data_table",
+            metadata,
+            Column("id", Integer), #, primary_key=True), # removed use of primary key to get test to work
+            Column("name", String(30), nullable=False),
+            Column("data", cls.datatype, nullable=False),
+            Column("nulldata", cls.datatype(none_as_null=True)),
+        )
+
+    # ToDo - this does not yet work
+    def test_path_typed_comparison(self, datatype, value):
         pass

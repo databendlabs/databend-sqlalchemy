@@ -35,9 +35,21 @@ class Requirements(SuiteRequirements):
         return exclusions.closed()  # Currently no binary type in Databend
 
     @property
+    def comment_reflection(self):
+        """Indicates if the database support table comment reflection"""
+        return exclusions.open()
+
+    @property
+    def comment_reflection_full_unicode(self):
+        """Indicates if the database support table comment reflection in the
+        full unicode range, including emoji etc.
+        """
+        return exclusions.open()
+
+    @property
     def temporary_tables(self):
         """target database supports temporary tables"""
-        return exclusions.closed()  # Databend does not currently support temporary tables
+        return exclusions.open()
 
     @property
     def temp_table_reflection(self):
@@ -103,13 +115,6 @@ class Requirements(SuiteRequirements):
 
         return exclusions.closed()
 
-    @property
-    def time_timezone(self):
-        """target dialect supports representation of Python
-        datetime.time() with tzinfo with Time(timezone=True)."""
-
-        return exclusions.closed()
-
     # @property
     # def datetime_implicit_bound(self):
     #     """target dialect when given a datetime object will bind it such
@@ -124,14 +129,14 @@ class Requirements(SuiteRequirements):
         """target dialect supports representation of Python
         datetime.datetime() with microsecond objects."""
 
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def timestamp_microseconds(self):
         """target dialect supports representation of Python
         datetime.datetime() with microsecond objects but only
         if TIMESTAMP is used."""
-        return exclusions.closed()
+        return exclusions.open()
 
     @property
     def time(self):
@@ -144,6 +149,13 @@ class Requirements(SuiteRequirements):
     def time_microseconds(self):
         """target dialect supports representation of Python
         datetime.time() with microsecond objects."""
+
+        return exclusions.open()
+
+    @property
+    def time_timezone(self):
+        """target dialect supports representation of Python
+        datetime.time() with tzinfo with Time(timezone=True)."""
 
         return exclusions.closed()
 
@@ -174,7 +186,14 @@ class Requirements(SuiteRequirements):
         as well as in result rows.
 
         """
-        return exclusions.closed()
+        return exclusions.open()
+
+    @property
+    def unicode_ddl(self):
+        """Target driver must support some degree of non-ascii symbol
+        names.
+        """
+        return exclusions.open()
 
     @property
     def precision_generic_float_type(self):
@@ -183,6 +202,14 @@ class Requirements(SuiteRequirements):
 
         """
         return exclusions.closed()  #ToDo - I couldn't get the test for this one working, not sure where the issue is - AssertionError: {Decimal('15.7563829')} != {Decimal('15.7563827')}
+
+    @property
+    def precision_numerics_many_significant_digits(self):
+        """target backend supports values with many digits on both sides,
+        such as 319438950232418390.273596, 87673.594069654243
+
+        """
+        return exclusions.closed()
 
     @property
     def array_type(self):
@@ -198,9 +225,52 @@ class Requirements(SuiteRequirements):
     def json_type(self):
         """target platform implements a native JSON type."""
 
-        return exclusions.closed()  #ToDo - This could be enabled if primary keys were supported
+        return exclusions.closed()  # ToDo - not quite ready to turn on yet, null values are not handled correctly https://github.com/databendlabs/databend/issues/17433
 
     @property
     def reflect_table_options(self):
         """Target database must support reflecting table_options."""
+        return exclusions.open()
+
+    @property
+    def ctes(self):
+        """Target database supports CTEs"""
+        return exclusions.open()
+
+    @property
+    def ctes_with_update_delete(self):
+        """target database supports CTES that ride on top of a normal UPDATE
+        or DELETE statement which refers to the CTE in a correlated subquery.
+
+        """
+        return exclusions.open()
+
+    @property
+    def update_from(self):
+        """Target must support UPDATE..FROM syntax"""
+        return exclusions.closed()
+
+
+    @property
+    def delete_from(self):
+        """Target must support DELETE FROM..FROM or DELETE..USING syntax"""
+        return exclusions.closed()
+
+    @property
+    def table_value_constructor(self):
+        """Database / dialect supports a query like:
+
+        .. sourcecode:: sql
+
+             SELECT * FROM VALUES ( (c1, c2), (c1, c2), ...)
+             AS some_table(col1, col2)
+
+        SQLAlchemy generates this with the :func:`_sql.values` function.
+
+        """
+        return exclusions.open()
+
+    @property
+    def window_functions(self):
+        """Target database must support window functions."""
         return exclusions.open()
