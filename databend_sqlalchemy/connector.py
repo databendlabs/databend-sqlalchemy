@@ -5,6 +5,7 @@
 # Many docstrings in this file are based on the PEP, which is in the public domain.
 import decimal
 import re
+import json
 from datetime import datetime, date, time, timedelta
 from databend_sqlalchemy.errors import Error, NotSupportedError
 
@@ -56,6 +57,8 @@ class ParamEscaper:
             return self.escape_string(item.strftime("%Y-%m-%d %H:%M:%S.%f")) + "::timestamp"
         elif isinstance(item, date):
             return self.escape_string(item.strftime("%Y-%m-%d")) + "::date"
+        elif isinstance(item, dict):
+            return self.escape_string(f'parse_json({json.dumps(item)})')
         else:
             return self.escape_string(item)
 
