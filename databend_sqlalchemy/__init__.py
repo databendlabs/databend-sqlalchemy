@@ -19,6 +19,7 @@ from .dml import (
     NDJSONFormat,
     ParquetFormat,
     ORCFormat,
+    AVROFormat,
     AmazonS3,
     AzureBlobStorage,
     GoogleCloudStorage,
