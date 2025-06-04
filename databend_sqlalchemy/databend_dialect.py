@@ -1040,7 +1040,8 @@ class DatabendCompiler(PGCompiler):
 
         result = f"COPY INTO {target}" f" FROM {source}"
         if hasattr(copy_into, "files") and isinstance(copy_into.files, list):
-            result += f"FILES = {', '.join([f for f in copy_into.files])}"
+            quoted_files = [f"'{f}'" for f in copy_into.files]
+            result += f" FILES = ({', '.join(quoted_files)})"
         if hasattr(copy_into, "pattern") and copy_into.pattern:
             result += f" PATTERN = '{copy_into.pattern}'"
         if not isinstance(copy_into.file_format, NoneType):
