@@ -162,6 +162,38 @@ class CompileDatabendCopyIntoTableTest(fixtures.TestBase, AssertsCompiledSQL):
             checkparams={"1_1": "xyz", "IF_1": "NULL", "IF_2": "NOTNULL"},
         )
 
+    def test_copy_into_table_files(self):
+        m = MetaData()
+        tbl = Table(
+            "atable",
+            m,
+            Column("id", Integer),
+            schema="test_schema",
+        )
+
+        copy_into = CopyIntoTable(
+            target=tbl,
+            from_=GoogleCloudStorage(
+                uri="gcs://some-bucket/a/path/to/files",
+                credentials="XYZ",
+            ),
+            files=['one','two','three'],
+            file_format=CSVFormat(),
+        )
+
+        self.assert_compile(
+            copy_into,
+            (
+                "COPY INTO test_schema.atable"
+                " FROM 'gcs://some-bucket/a/path/to/files' "
+                "CONNECTION = ("
+                "  ENDPOINT_URL = 'https://storage.googleapis.com' "
+                "  CREDENTIAL = 'XYZ' "
+                ") FILES = ('one', 'two', 'three')"
+                " FILE_FORMAT = (TYPE = CSV)"
+            ),
+        )
+
 
 class CopyIntoResultTest(fixtures.TablesTest):
     run_create_tables = "each"
@@ -204,7 +236,7 @@ class CopyIntoResultTest(fixtures.TablesTest):
         eq_(r.rowcount, 1000)
         copy_into_results = r.context.copy_into_location_results()
         eq_(copy_into_results['rows_unloaded'], 1000)
-        eq_(copy_into_results['input_bytes'], 16250)
+        # eq_(copy_into_results['input_bytes'], 16250) # input bytes will differ, the table is random
         # eq_(copy_into_results['output_bytes'], 4701) # output bytes differs
 
         # now copy into table

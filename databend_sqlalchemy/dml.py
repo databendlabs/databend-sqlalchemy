@@ -250,6 +250,7 @@ class Compression(Enum):
     DEFLATE = "DEFLATE"
     RAW_DEFLATE = "RAW_DEFLATE"
     XZ = "XZ"
+    SNAPPY = "SNAPPY"
 
 
 class CopyFormat(ClauseElement):
@@ -405,6 +406,30 @@ class ParquetFormat(CopyFormat):
         self,
         *,
         missing_field_as: str = None,
+        compression: Compression = None,
+    ):
+        super().__init__()
+        if missing_field_as:
+            if missing_field_as not in ["ERROR", "FIELD_DEFAULT"]:
+                raise TypeError(
+                    'Missing Field As should be "ERROR" or "FIELD_DEFAULT".'
+                )
+            self.options["MISSING_FIELD_AS"] = f"{missing_field_as}"
+        if compression:
+            if compression not in [Compression.ZSTD, Compression.SNAPPY]:
+                raise TypeError(
+                    'Compression should be None, ZStd, or Snappy.'
+                )
+            self.options["COMPRESSION"] = compression.value
+
+
+class AVROFormat(CopyFormat):
+    format_type = "AVRO"
+
+    def __init__(
+        self,
+        *,
+        missing_field_as: str = None,
     ):
         super().__init__()
         if missing_field_as:
@@ -417,6 +442,19 @@ class ParquetFormat(CopyFormat):
 
 class ORCFormat(CopyFormat):
     format_type = "ORC"
+
+    def __init__(
+        self,
+        *,
+        missing_field_as: str = None,
+    ):
+        super().__init__()
+        if missing_field_as:
+            if missing_field_as not in ["ERROR", "FIELD_DEFAULT"]:
+                raise TypeError(
+                    'Missing Field As should be "ERROR" or "FIELD_DEFAULT".'
+                )
+            self.options["MISSING_FIELD_AS"] = f"{missing_field_as}"
 
 
 class StageClause(ClauseElement, FromClauseRole):
