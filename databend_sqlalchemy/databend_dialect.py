@@ -1397,7 +1397,6 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
             )
             colspec += " COMMENT " + literal
 
-        return colspec
     def visit_set_table_comment(self, create, **kw):
         return "ALTER TABLE %s COMMENT = %s" % (
             self.preparer.format_table(create.element),
@@ -1417,7 +1416,6 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
             self.preparer.format_column(create.element),
             self.get_column_specification(create.element),
         )
-
 
     def visit_TUPLE(self, type_, **kw):
         return type_.get_col_spec(**kw)
