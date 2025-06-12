@@ -58,8 +58,9 @@ from sqlalchemy.types import (
     FLOAT,
     JSON,
     CHAR,
-    TIMESTAMP,
+    TIMESTAMP
 )
+
 from sqlalchemy.engine import ExecutionContext, default
 from sqlalchemy.exc import DBAPIError, NoSuchTableError
 
@@ -72,6 +73,18 @@ from .dml import (
     AmazonS3,
 )
 from .types import INTERVAL
+
+import sqlalchemy
+from sqlalchemy import types as sqltypes
+from sqlalchemy.sql.base import Executable
+
+# Check SQLAlchemy version
+SQLALCHEMY_VERSION = tuple(map(int, sqlalchemy.__version__.split('.')[:2]))
+
+
+class DOUBLE(sqltypes.Float):
+    __visit_name__ = "DOUBLE"
+
 
 RESERVED_WORDS = {
     "Error",
@@ -678,7 +691,6 @@ RESERVED_WORDS = {
     "ONLINE",
 }
 
-
 # Type decorators
 class ARRAY(sqltypes.TypeEngine):
     __visit_name__ = "ARRAY"
@@ -793,12 +805,58 @@ class DatabendInterval(INTERVAL):
     render_bind_cast = True
 
 
+class TINYINT(sqltypes.SMALLINT):
+    __visit_name__ = "TINYINT"
+
+
+class GEOMETRY(sqltypes.TypeEngine):
+    __visit_name__ = "GEOMETRY"
+
+    def __init__(self, srid=None):
+        super(GEOMETRY, self).__init__()
+        self.srid = srid
+
+
+class GEOGRAPHY(sqltypes.TypeEngine):
+    __visit_name__ = "GEOGRAPHY"
+
+    def __init__(self, srid=None):
+        super(GEOGRAPHY, self).__init__()
+        self.srid = srid
+
+
+class TUPLE(sqltypes.TypeEngine):
+    __visit_name__ = "TUPLE"
+
+    def __init__(self, *types, **kwargs):
+        if not types:
+            raise ValueError("TUPLE type must have at least one type parameter")
+        self.types = types
+        super(TUPLE, self).__init__(**kwargs)
+
+    def _compiler_dispatch(self, visitor, **kw):
+        return visitor.visit_TUPLE(self, **kw)
+
+    def get_col_spec(self, **kw):
+        return "TUPLE(%s)" % (
+            ", ".join(self._get_type_name(t) for t in self.types)
+        )
+
+    def _get_type_name(self, t):
+        if isinstance(t, sqltypes.TypeEngine):
+            return t.__visit_name__
+        elif isinstance(t, type):
+            return t.__name__
+        else:
+            return str(t)
+
+
 # Type converters
 ischema_names = {
     "bigint": BIGINT,
     "int": INTEGER,
     "smallint": SMALLINT,
-    "tinyint": SMALLINT,
+    "tinyint": TINYINT,
     "int64": BIGINT,
     "int32": INTEGER,
     "int16": SMALLINT,
@@ -813,7 +871,7 @@ ischema_names = {
     "datetime": DatabendDateTime,
     "timestamp": DatabendDateTime,
     "float": FLOAT,
-    "double": FLOAT,
+    "double": DOUBLE,
     "float64": FLOAT,
     "float32": FLOAT,
     "string": VARCHAR,
@@ -826,6 +884,9 @@ ischema_names = {
     "binary": BINARY,
     "time": DatabendTime,
     "interval": DatabendInterval,
+    "geometry": GEOMETRY,
+    "geography": GEOGRAPHY,
+    "tuple": TUPLE,
 }
 
 # Column spec
@@ -864,7 +925,9 @@ class DatabendCompiler(PGCompiler):
         return "today()"
 
     def visit_cast(self, cast, **kwargs):
-        if self.dialect.supports_cast:
+        if isinstance(cast.type, GEOGRAPHY):
+            return f"ST_GeographyFromText({self.process(cast.clause, **kwargs)})"
+        elif self.dialect.supports_cast:
             return super(DatabendCompiler, self).visit_cast(cast, **kwargs)
         else:
             return self.process(cast.clause, **kwargs)
@@ -1227,6 +1290,30 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
     def visit_INTERVAL(self, type, **kw):
         return "INTERVAL"
 
+    def visit_DOUBLE(self, type_, **kw):
+        return "DOUBLE"
+
+    def visit_TINYINT(self, type_, **kw):
+        return "TINYINT"
+
+    def visit_FLOAT(self, type_, **kw):
+        return "FLOAT"
+
+    def visit_GEOMETRY(self, type_, **kw):
+        if type_.srid is not None:
+            return f"GEOMETRY(SRID {type_.srid})"
+        return "GEOMETRY"
+
+    def visit_GEOGRAPHY(self, type_, **kw):
+        if type_.srid is not None:
+            return f"GEOGRAPHY(SRID {type_.srid})"
+        return "GEOGRAPHY"
+
+    def visit_TUPLE(self, type_, **kw):
+        return "TUPLE(%s)" % (
+            ", ".join(self.process(t) for t in type_.types)
+        )
+
 
 class DatabendDDLCompiler(compiler.DDLCompiler):
     def visit_primary_key_constraint(self, constraint, **kw):
@@ -1297,7 +1384,12 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
         return " ".join(table_opts)
 
     def get_column_specification(self, column, **kwargs):
-        colspec = super().get_column_specification(column, **kwargs)
+        if isinstance(column.type, TUPLE):
+            colspec = self.preparer.format_column(column)
+            colspec += " " + column.type._compiler_dispatch(self)
+        else:
+            colspec = super().get_column_specification(column, **kwargs)
+
         comment = column.comment
         if comment is not None:
             literal = self.sql_compiler.render_literal_value(
@@ -1306,7 +1398,6 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
             colspec += " COMMENT " + literal
 
         return colspec
-
     def visit_set_table_comment(self, create, **kw):
         return "ALTER TABLE %s COMMENT = %s" % (
             self.preparer.format_table(create.element),
@@ -1326,6 +1417,10 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
             self.preparer.format_column(create.element),
             self.get_column_specification(create.element),
         )
+
+
+    def visit_TUPLE(self, type_, **kw):
+        return type_.get_col_spec(**kw)
 
 
 class DatabendDialect(default.DefaultDialect):
@@ -1513,13 +1608,25 @@ class DatabendDialect(default.DefaultDialect):
                     # e.g.'18, 5'
                     prec, scale = charlen.split(", ")
                     args = (int(prec), int(scale))
+            elif type_str == "geometry":
+                if charlen:
+                    kwargs["srid"] = int(charlen)
+                return GEOMETRY(**kwargs)
+            elif type_str == "geography":
+                if charlen:
+                    kwargs["srid"] = int(charlen)
+                return GEOGRAPHY(**kwargs)
+            elif type_str == "tuple":
+                if charlen:
+                    subtypes = [self._get_column_type(t.strip()) for t in charlen.split(',')]
+                    return TUPLE(*subtypes)
             elif charlen:
                 args = (int(charlen),)
 
-            coltype = self.ischema_names[type_str]
-            return coltype(*args, **kwargs)
-        else:
-            return None
+            coltype = self.ischema_names.get(type_str)
+            if coltype:
+                return coltype(*args, **kwargs)
+        return None
 
     @reflection.cache
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
