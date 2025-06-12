@@ -1291,8 +1291,8 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
     def visit_ARRAY(self, type_, **kw):
         return "Array(%s)" % type_
 
-    def Visit_MAP(self, type_, **kw):
-        return f'Map({type_.key_type}, {type_.value_type})'
+    def visit_MAP(self, type_, **kw):
+        return f"MAP({self.process(type_.key_type)}, {self.process(type_.value_type)})"
 
     def visit_NUMERIC(self, type_, **kw):
         if type_.precision is None:
@@ -1366,10 +1366,58 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
     def visit_create_table(self, create, **kw):
         table = create.element
         db_opts = table.dialect_options["databend"]
+
+        # Handle transient tables
         if "transient" in db_opts and db_opts["transient"]:
             if "transient" not in [p.lower() for p in table._prefixes]:
                 table._prefixes.append("TRANSIENT")
-        return super().visit_create_table(create, **kw)
+
+        # Generate column definitions
+        column_strings = []
+        for column in table.columns:
+            column_spec = self.get_column_specification(column)
+            if column_spec is not None:
+                column_strings.append(column_spec)
+
+        # Join column definitions
+        table_definition = ", ".join(column_strings)
+
+        # Create the full CREATE TABLE statement
+        create_table = "CREATE TABLE %s (%s)" % (
+            self.preparer.format_table(table),
+            table_definition
+        )
+
+        return create_table
+        # return super().visit_create_table(create, **kw)
+
+    def get_column_specification(self, column, **kwargs):
+        if isinstance(column.type, MAP) or isinstance(column.type, TUPLE):
+            colspec = self.preparer.format_column(column)
+            colspec += " " + column.type._compiler_dispatch(self)
+        elif isinstance(column.type, sqltypes.ARRAY):
+            colspec = self.preparer.format_column(column) + " " + self.dialect.type_compiler.process(column.type)
+            item_type = self.dialect.type_compiler.process(column.type.item_type)
+            colspec = f"{colspec}({item_type})"
+        else:
+            colspec = self.preparer.format_column(column) + " " + self.dialect.type_compiler.process(column.type)
+
+        if column.nullable is not None:
+            if not column.nullable:
+                colspec += " NOT NULL"
+            else:
+                colspec += " NULL"
+
+        default = self.get_column_default_string(column)
+        if default is not None:
+            colspec += " DEFAULT " + default
+
+        comment = column.comment
+        if comment is not None:
+            literal = self.sql_compiler.render_literal_value(comment, sqltypes.String())
+            colspec += " COMMENT " + literal
+
+        return colspec
 
     def post_create_table(self, table):
         table_opts = []
@@ -1405,20 +1453,6 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
         # ToDo - Engine options
 
         return " ".join(table_opts)
-
-    def get_column_specification(self, column, **kwargs):
-        if isinstance(column.type, TUPLE) or isinstance(column.type, MAP):
-            colspec = self.preparer.format_column(column)
-            colspec += " " + column.type._compiler_dispatch(self)
-        else:
-            colspec = super().get_column_specification(column, **kwargs)
-
-        comment = column.comment
-        if comment is not None:
-            literal = self.sql_compiler.render_literal_value(
-                comment, sqltypes.String()
-            )
-            colspec += " COMMENT " + literal
 
     def visit_set_table_comment(self, create, **kw):
         return "ALTER TABLE %s COMMENT = %s" % (
@@ -1643,6 +1677,10 @@ class DatabendDialect(default.DefaultDialect):
                 if charlen:
                     subtypes = [self._get_column_type(t.strip()) for t in charlen.split(',')]
                     return TUPLE(*subtypes)
+            elif type_str == "map":
+                if charlen:
+                    subtypes = [self._get_column_type(t.strip()) for t in charlen.split(',')]
+                    return MAP(*subtypes)
             elif charlen:
                 args = (int(charlen),)
 

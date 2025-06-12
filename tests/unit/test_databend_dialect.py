@@ -213,8 +213,15 @@ def test_types():
             databend_sqlalchemy.databend_dialect.BOOLEAN is sqlalchemy.sql.sqltypes.BOOLEAN
     )
     assert databend_sqlalchemy.databend_dialect.FLOAT is sqlalchemy.sql.sqltypes.FLOAT
+    assert databend_sqlalchemy.databend_dialect.DOUBLE is sqlalchemy.sql.sqltypes.DOUBLE
     assert issubclass(
         databend_sqlalchemy.databend_dialect.ARRAY, sqlalchemy.types.TypeEngine
+    )
+    assert issubclass(
+        databend_sqlalchemy.databend_dialect.TUPLE, sqlalchemy.types.TypeEngine
+    )
+    assert issubclass(
+        databend_sqlalchemy.databend_dialect.MAP, sqlalchemy.types.TypeEngine
     )
 
 
