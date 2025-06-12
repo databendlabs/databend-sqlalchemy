@@ -78,13 +78,6 @@ import sqlalchemy
 from sqlalchemy import types as sqltypes
 from sqlalchemy.sql.base import Executable
 
-# Check SQLAlchemy version
-SQLALCHEMY_VERSION = tuple(map(int, sqlalchemy.__version__.split('.')[:2]))
-
-
-class DOUBLE(sqltypes.Float):
-    __visit_name__ = "DOUBLE"
-
 
 RESERVED_WORDS = {
     "Error",
@@ -809,6 +802,10 @@ class TINYINT(sqltypes.SMALLINT):
     __visit_name__ = "TINYINT"
 
 
+class DOUBLE(sqltypes.Float):
+    __visit_name__ = "DOUBLE"
+
+
 class GEOMETRY(sqltypes.TypeEngine):
     __visit_name__ = "GEOMETRY"
 
@@ -841,6 +838,32 @@ class TUPLE(sqltypes.TypeEngine):
         return "TUPLE(%s)" % (
             ", ".join(self._get_type_name(t) for t in self.types)
         )
+
+    def _get_type_name(self, t):
+        if isinstance(t, sqltypes.TypeEngine):
+            return t.__visit_name__
+        elif isinstance(t, type):
+            return t.__name__
+        else:
+            return str(t)
+
+class MAP(sqltypes.TypeEngine):
+    __visit_name__ = "MAP"
+
+    def __init__(self, key_type, value_type, **kwargs):
+        if not key_type:
+            raise ValueError("MAP type must a key_type")
+        if not value_type:
+            raise ValueError("MAP type must have a value_type")
+        self.key_type = key_type;
+        self.value_type = value_type
+        super(MAP, self).__init__(**kwargs)
+
+    def _compiler_dispatch(self, visitor, **kw):
+        return visitor.visit_MAP(self, **kw)
+
+    def get_col_spec(self, **kw):
+        return f'MAP({self._get_type_name(self.key_type)}, {self._get_type_name(self.value_type)})'
 
     def _get_type_name(self, t):
         if isinstance(t, sqltypes.TypeEngine):
@@ -1269,7 +1292,7 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
         return "Array(%s)" % type_
 
     def Visit_MAP(self, type_, **kw):
-        return "Map(%s)" % type_
+        return f'Map({type_.key_type}, {type_.value_type})'
 
     def visit_NUMERIC(self, type_, **kw):
         if type_.precision is None:
@@ -1384,7 +1407,7 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
         return " ".join(table_opts)
 
     def get_column_specification(self, column, **kwargs):
-        if isinstance(column.type, TUPLE):
+        if isinstance(column.type, TUPLE) or isinstance(column.type, MAP):
             colspec = self.preparer.format_column(column)
             colspec += " " + column.type._compiler_dispatch(self)
         else:
@@ -1420,6 +1443,8 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
     def visit_TUPLE(self, type_, **kw):
         return type_.get_col_spec(**kw)
 
+    def visit_MAP(self, type_, **kw):
+        return type_.get_col_spec(**kw)
 
 class DatabendDialect(default.DefaultDialect):
     name = "databend"
