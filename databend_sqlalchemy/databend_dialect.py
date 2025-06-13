@@ -813,13 +813,52 @@ class GEOMETRY(sqltypes.TypeEngine):
         super(GEOMETRY, self).__init__()
         self.srid = srid
 
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        # Assuming the database returns WKT (Well-Known Text) representation
+        return str(value)
+
+    def bind_expression(self, bindvalue):
+        return func.ST_GeomFromText(bindvalue, type_=self)
+
+    def column_expression(self, col):
+        return func.ST_AsText(col, type_=sqltypes.String)
+
 
 class GEOGRAPHY(sqltypes.TypeEngine):
     __visit_name__ = "GEOGRAPHY"
+    render_bind_cast = True
 
-    def __init__(self, srid=None):
+    def __init__(self, srid=None, **kwargs):
         super(GEOGRAPHY, self).__init__()
         self.srid = srid
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        # Assuming the database returns WKT (Well-Known Text) representation
+        return str(value)
+
+    def bind_expression(self, bindvalue):
+        return func.ST_GeographyFromText(bindvalue, type_=self)
+
+    def column_expression(self, col):
+        return func.ST_AsText(col, type_=sqltypes.String)
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value is None:
+                return None
+            return str(value)
+        return process
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value is None:
+                return None
+            return str(value)
+        return process
 
 
 class TUPLE(sqltypes.TypeEngine):
@@ -948,8 +987,16 @@ class DatabendCompiler(PGCompiler):
         return "today()"
 
     def visit_cast(self, cast, **kwargs):
-        if isinstance(cast.type, GEOGRAPHY):
-            return f"ST_GeographyFromText({self.process(cast.clause, **kwargs)})"
+        print(f"Casting type: {cast.type}")  # Debug print
+        if isinstance(cast.type, GEOMETRY):
+            return f"ST_AsText({self.process(cast.clause, **kwargs)})"
+        elif isinstance(cast.type, GEOGRAPHY):
+            return f"ST_AsWKT({self.process(cast.clause, **kwargs)})"
+        elif isinstance(cast.type, sqltypes.String) and isinstance(cast.clause.type, (GEOGRAPHY, GEOMETRY)):
+            if isinstance(cast.clause.type, GEOMETRY):
+                return f"ST_AsText({self.process(cast.clause, **kwargs)})"
+            else:  # GEOGRAPHY
+                return f"ST_AsWKT({self.process(cast.clause, **kwargs)})"
         elif self.dialect.supports_cast:
             return super(DatabendCompiler, self).visit_cast(cast, **kwargs)
         else:
