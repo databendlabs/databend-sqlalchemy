@@ -81,7 +81,7 @@ from .dml import (
     AzureBlobStorage,
     AmazonS3,
 )
-from .types import INTERVAL, TINYINT, BITMAP
+from .types import INTERVAL, TINYINT, BITMAP, GEOMETRY, GEOGRAPHY
 
 RESERVED_WORDS = {
     "Error",
@@ -811,6 +811,13 @@ class DatabendBitmap(BITMAP):
 class DatabendTinyInt(TINYINT):
     render_bind_cast = True
 
+
+class DatabendGeometry(GEOMETRY):
+    render_bind_cast = True
+
+class DatabendGeography(GEOGRAPHY):
+    render_bind_cast = True
+
 # Type converters
 ischema_names = {
     "bigint": BIGINT,
@@ -844,7 +851,9 @@ ischema_names = {
     "binary": BINARY,
     "time": DatabendTime,
     "interval": DatabendInterval,
-    "bitmap": DatabendBitmap
+    "bitmap": DatabendBitmap,
+    "geometry": DatabendGeometry,
+    "geography": DatabendGeography
 }
 
 
@@ -1259,6 +1268,17 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
 
     def visit_BITMAP(self, type_, **kw):
         return "BITMAP"
+
+    def visit_GEOMETRY(self, type_, **kw):
+        if type_.srid is not None:
+            return f"GEOMETRY(SRID {type_.srid})"
+        return "GEOMETRY"
+
+    def visit_GEOGRAPHY(self, type_, **kw):
+        if type_.srid is not None:
+            return f"GEOGRAPHY(SRID {type_.srid})"
+        return "GEOGRAPHY"
+
 
 
 class DatabendDDLCompiler(compiler.DDLCompiler):

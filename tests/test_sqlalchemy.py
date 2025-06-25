@@ -25,7 +25,7 @@ from sqlalchemy.testing import config
 from sqlalchemy import testing, Table, Column, Integer
 from sqlalchemy.testing import eq_, fixtures, assertions
 
-from databend_sqlalchemy.types import TINYINT, BITMAP, DOUBLE
+from databend_sqlalchemy.types import TINYINT, BITMAP, DOUBLE, GEOMETRY, GEOGRAPHY
 
 from packaging import version
 import sqlalchemy
@@ -495,14 +495,173 @@ class DoubleTest(fixtures.TablesTest):
         double_table = self.tables.double_table
 
         # This should raise an exception as it's outside the DOUBLE range
-        with assertions.expect_raises(Exception):  # Replace with specific exception if known
+        with assertions.expect_raises(Exception):
             connection.execute(
                 double_table.insert(),
                 [{"id": 3, "double_data": float('inf')}]
             )
 
-        with assertions.expect_raises(Exception):  # Replace with specific exception if known
+        with assertions.expect_raises(Exception):
             connection.execute(
                 double_table.insert(),
                 [{"id": 3, "double_data": float('-inf')}]
             )
+
+
+class GeometryTest(fixtures.TablesTest):
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "geometry_table",
+            metadata,
+            Column("id", Integer),
+            Column("geometry_data", GEOMETRY)
+        )
+
+    """
+    Perform a simple test using Databend's bitmap data type to check
+    that the bitmap data is correctly inserted and retrieved.'
+    """
+    def test_geometry_write_and_read(self, connection):
+        geometry_table = self.tables.geometry_table
+
+        # Insert a value
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 1, "geometry_data": 'POINT(10 20)'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 2, "geometry_data": 'LINESTRING(10 20, 30 40, 50 60)'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 3, "geometry_data": 'POLYGON((10 20, 30 40, 50 60, 10 20))'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 4, "geometry_data": 'MULTIPOINT((10 20), (30 40), (50 60))'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 5, "geometry_data": 'MULTILINESTRING((10 20, 30 40), (50 60, 70 80))'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 6, "geometry_data": 'MULTIPOLYGON(((10 20, 30 40, 50 60, 10 20)), ((15 25, 25 35, 35 45, 15 25)))'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 7, "geometry_data": 'GEOMETRYCOLLECTION(POINT(10 20), LINESTRING(10 20, 30 40), POLYGON((10 20, 30 40, 50 60, 10 20)))'}]
+        )
+
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 1)
+        ).scalar()
+        eq_(result, ('{"type": "Point", "coordinates": [10,20]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 2)
+        ).scalar()
+        eq_(result, ('{"type": "LineString", "coordinates": [[10,20],[30,40],[50,60]]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 3)
+        ).scalar()
+        eq_(result, ('{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 4)
+        ).scalar()
+        eq_(result, ('{"type": "MultiPoint", "coordinates": [[10,20],[30,40],[50,60]]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 5)
+        ).scalar()
+        eq_(result, ('{"type": "MultiLineString", "coordinates": [[[10,20],[30,40]],[[50,60],[70,80]]]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 6)
+        ).scalar()
+        eq_(result, ('{"type": "MultiPolygon", "coordinates": [[[[10,20],[30,40],[50,60],[10,20]]],[[[15,25],[25,35],[35,45],[15,25]]]]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 7)
+        ).scalar()
+        eq_(result, ('{"type": "GeometryCollection", "geometries": [{"type": "Point", "coordinates": [10,20]},{"type": "LineString", "coordinates": [[10,20],[30,40]]},{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}]}'))
+
+
+
+
+
+class GeographyTest(fixtures.TablesTest):
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "geography_table",
+            metadata,
+            Column("id", Integer),
+            Column("geography_data", GEOGRAPHY)
+        )
+
+    """
+    Perform a simple test using Databend's bitmap data type to check
+    that the bitmap data is correctly inserted and retrieved.'
+    """
+    def test_geography_write_and_read(self, connection):
+        geography_table = self.tables.geography_table
+
+        # Insert a value
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 1, "geography_data": 'POINT(10 20)'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 2, "geography_data": 'LINESTRING(10 20, 30 40, 50 60)'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 3, "geography_data": 'POLYGON((10 20, 30 40, 50 60, 10 20))'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 4, "geography_data": 'MULTIPOINT((10 20), (30 40), (50 60))'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 5, "geography_data": 'MULTILINESTRING((10 20, 30 40), (50 60, 70 80))'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 6, "geography_data": 'MULTIPOLYGON(((10 20, 30 40, 50 60, 10 20)), ((15 25, 25 35, 35 45, 15 25)))'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 7, "geography_data": 'GEOMETRYCOLLECTION(POINT(10 20), LINESTRING(10 20, 30 40), POLYGON((10 20, 30 40, 50 60, 10 20)))'}]
+        )
+
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 1)
+        ).scalar()
+        eq_(result, ('{"type": "Point", "coordinates": [10,20]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 2)
+        ).scalar()
+        eq_(result, ('{"type": "LineString", "coordinates": [[10,20],[30,40],[50,60]]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 3)
+        ).scalar()
+        eq_(result, ('{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 4)
+        ).scalar()
+        eq_(result, ('{"type": "MultiPoint", "coordinates": [[10,20],[30,40],[50,60]]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 5)
+        ).scalar()
+        eq_(result, ('{"type": "MultiLineString", "coordinates": [[[10,20],[30,40]],[[50,60],[70,80]]]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 6)
+        ).scalar()
+        eq_(result, ('{"type": "MultiPolygon", "coordinates": [[[[10,20],[30,40],[50,60],[10,20]]],[[[15,25],[25,35],[35,45],[15,25]]]]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 7)
+        ).scalar()
+        eq_(result, ('{"type": "GeometryCollection", "geometries": [{"type": "Point", "coordinates": [10,20]},{"type": "LineString", "coordinates": [[10,20],[30,40]]},{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}]}'))

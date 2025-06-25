@@ -131,3 +131,20 @@ class BITMAP(sqltypes.TypeEngine):
                 return None
             return set(int(x) for x in value.split(',') if x)
         return process
+
+
+class GEOMETRY(sqltypes.TypeEngine):
+    __visit_name__ = "GEOMETRY"
+
+    def __init__(self, srid=None):
+        super(GEOMETRY, self).__init__()
+        self.srid = srid
+
+
+class GEOGRAPHY(sqltypes.TypeEngine):
+    __visit_name__ = "GEOGRAPHY"
+
+    def __init__(self, srid=None):
+        super(GEOGRAPHY, self).__init__()
+        self.srid = srid
+
