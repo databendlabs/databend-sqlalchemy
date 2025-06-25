@@ -286,6 +286,7 @@ class EnumTest(_EnumTest):
     def test_round_trip_executemany(self, connection):
         pass
 
+
 class CTETest(_CTETest):
     @classmethod
     def define_tables(cls, metadata):
@@ -321,8 +322,6 @@ class JSONTest(_JSONTest):
     # ToDo - this does not yet work
     def test_path_typed_comparison(self, datatype, value):
         pass
-
-
 
 
 class IntegerTest(_IntegerTest, fixtures.TablesTest):
@@ -493,4 +492,3 @@ class DoubleTest(fixtures.TablesTest):
                 double_table.insert(),
                 [{"id": 3, "double_data": float('-inf')}]
             )
-
