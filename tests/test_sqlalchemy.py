@@ -24,7 +24,7 @@ from sqlalchemy.testing import config
 from sqlalchemy import testing, Table, Column, Integer
 from sqlalchemy.testing import eq_, fixtures, assertions
 
-from databend_sqlalchemy.types import TINYINT, BITMAP
+from databend_sqlalchemy.types import TINYINT, BITMAP, DOUBLE
 
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
@@ -375,6 +375,7 @@ class IntegerTest(_IntegerTest, fixtures.TablesTest):
                 [{"id": -129}]  # -129 is typically outside the range of a signed TINYINT
             )
 
+
 class BitmapTest(fixtures.TablesTest):
 
     @classmethod
@@ -433,3 +434,63 @@ class BitmapTest(fixtures.TablesTest):
 
         # Verify the result
         eq_(result, "4,5")
+
+
+class DoubleTest(fixtures.TablesTest):
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "double_table",
+            metadata,
+            Column("id", Integer),
+            Column("double_data", DOUBLE)
+        )
+
+    def test_double_write_and_read(self, connection):
+        double_table = self.tables.double_table
+
+        # Insert a value
+        connection.execute(
+            double_table.insert(),
+            [{"id": 1, "double_data": -1.7976931348623157E+308}]
+        )
+
+        connection.execute(
+            double_table.insert(),
+            [{"id": 2, "double_data": 1.7976931348623157E+308}]
+        )
+
+        # Read the value back
+        result = connection.execute(
+            select(double_table.c.double_data).where(double_table.c.id == 1)
+        ).scalar()
+
+        # Verify the value
+        eq_(result, -1.7976931348623157E+308)
+
+        # Read the value back
+        result = connection.execute(
+            select(double_table.c.double_data).where(double_table.c.id == 2)
+        ).scalar()
+
+        # Verify the value
+        eq_(result, 1.7976931348623157E+308)
+
+
+    def test_double_overflow(self, connection):
+        double_table = self.tables.double_table
+
+        # This should raise an exception as it's outside the TINYINT range
+        with assertions.expect_raises(Exception):  # Replace with specific exception if known
+            connection.execute(
+                double_table.insert(),
+                [{"id": 3, "double_data": float('inf')}]
+            )
+
+        with assertions.expect_raises(Exception):  # Replace with specific exception if known
+            connection.execute(
+                double_table.insert(),
+                [{"id": 3, "double_data": float('-inf')}]
+            )
+
