@@ -480,7 +480,7 @@ class DoubleTest(fixtures.TablesTest):
     def test_double_overflow(self, connection):
         double_table = self.tables.double_table
 
-        # This should raise an exception as it's outside the TINYINT range
+        # This should raise an exception as it's outside the DOUBLE range
         with assertions.expect_raises(Exception):  # Replace with specific exception if known
             connection.execute(
                 double_table.insert(),
