@@ -13,12 +13,13 @@ from sqlalchemy.testing.suite import LikeFunctionsTest as _LikeFunctionsTest
 from sqlalchemy.testing.suite import LongNameBlowoutTest as _LongNameBlowoutTest
 from sqlalchemy.testing.suite import QuotedNameArgumentTest as _QuotedNameArgumentTest
 from sqlalchemy.testing.suite import JoinTest as _JoinTest
-from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
+
 from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursorsTest
-from sqlalchemy.testing.suite import EnumTest as _EnumTest
+
 from sqlalchemy.testing.suite import CTETest as _CTETest
 from sqlalchemy.testing.suite import JSONTest as _JSONTest
 from sqlalchemy.testing.suite import IntegerTest as _IntegerTest
+
 from sqlalchemy import types as sql_types
 from sqlalchemy.testing import config
 from sqlalchemy import testing, Table, Column, Integer
@@ -26,6 +27,19 @@ from sqlalchemy.testing import eq_, fixtures, assertions
 
 from databend_sqlalchemy.types import TINYINT, BITMAP, DOUBLE
 
+from packaging import version
+import sqlalchemy
+if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
+    from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
+    from sqlalchemy.testing.suite import EnumTest as _EnumTest
+else:
+    from sqlalchemy.testing.suite import ComponentReflectionTest as _ComponentReflectionTest
+
+    class ComponentReflectionTest(_ComponentReflectionTest):
+
+        @testing.skip("databend")
+        def test_get_indexes(self):
+            pass
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
 
@@ -190,9 +204,9 @@ class QuotedNameArgumentTest(_QuotedNameArgumentTest):
 class JoinTest(_JoinTest):
     __requires__ = ("foreign_keys",)
 
-
-class BizarroCharacterFKResolutionTest(_BizarroCharacterFKResolutionTest):
-    __requires__ = ("foreign_keys",)
+if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
+    class BizarroCharacterFKResolutionTest(_BizarroCharacterFKResolutionTest):
+        __requires__ = ("foreign_keys",)
 
 
 class BinaryTest(_BinaryTest):
@@ -278,13 +292,13 @@ class ServerSideCursorsTest(_ServerSideCursorsTest):
     def test_roundtrip_fetchmany(self):
         pass
 
+if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
+    class EnumTest(_EnumTest):
+        __backend__ = True
 
-class EnumTest(_EnumTest):
-    __backend__ = True
-
-    @testing.skip("databend")  # Skipped because no supporting enums yet
-    def test_round_trip_executemany(self, connection):
-        pass
+        @testing.skip("databend")  # Skipped because no supporting enums yet
+        def test_round_trip_executemany(self, connection):
+            pass
 
 
 class CTETest(_CTETest):
