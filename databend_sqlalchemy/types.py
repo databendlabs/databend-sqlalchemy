@@ -81,7 +81,7 @@ class TINYINT(sqltypes.Integer):
     native = True
 
 
-class DOUBLE(sqltypes.Double):
+class DOUBLE(sqltypes.Float):
     __visit_name__ = "DOUBLE"
     native = True
 
@@ -106,19 +106,22 @@ class BITMAP(sqltypes.TypeEngine):
     def process_result_value(self, value, dialect):
         if value is None:
             return None
-        # Assuming the database returns a string representation of the bitmap
-        return str(value)
+        # Databend returns bitmaps as strings of comma-separated integers
+        return set(int(x) for x in value.split(',') if x)
 
     def bind_expression(self, bindvalue):
         return func.to_bitmap(bindvalue, type_=self)
 
     def column_expression(self, col):
-        return func.bitmap_to_string(col, type_=sqltypes.String)
+        # Convert bitmap to string using a custom function
+        return func.to_string(col, type_=sqltypes.String)
 
     def bind_processor(self, dialect):
         def process(value):
             if value is None:
                 return None
+            if isinstance(value, set):
+                return ','.join(str(x) for x in sorted(value))
             return str(value)
         return process
 
@@ -126,6 +129,5 @@ class BITMAP(sqltypes.TypeEngine):
         def process(value):
             if value is None:
                 return None
-            return str(value)
+            return set(int(x) for x in value.split(',') if x)
         return process
-

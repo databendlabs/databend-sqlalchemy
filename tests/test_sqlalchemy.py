@@ -18,9 +18,13 @@ from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursors
 from sqlalchemy.testing.suite import EnumTest as _EnumTest
 from sqlalchemy.testing.suite import CTETest as _CTETest
 from sqlalchemy.testing.suite import JSONTest as _JSONTest
+from sqlalchemy.testing.suite import IntegerTest as _IntegerTest
 from sqlalchemy import types as sql_types
-from sqlalchemy import testing, select
-from sqlalchemy.testing import config, eq_
+from sqlalchemy.testing import config
+from sqlalchemy import testing, Table, Column, Integer
+from sqlalchemy.testing import eq_, fixtures, assertions
+
+from databend_sqlalchemy.types import TINYINT, BITMAP
 
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
@@ -282,7 +286,6 @@ class EnumTest(_EnumTest):
     def test_round_trip_executemany(self, connection):
         pass
 
-
 class CTETest(_CTETest):
     @classmethod
     def define_tables(cls, metadata):
@@ -318,3 +321,115 @@ class JSONTest(_JSONTest):
     # ToDo - this does not yet work
     def test_path_typed_comparison(self, datatype, value):
         pass
+
+
+
+
+class IntegerTest(_IntegerTest, fixtures.TablesTest):
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "tiny_int_table",
+            metadata,
+            Column("id", TINYINT)
+        )
+
+    def test_tinyint_write_and_read(self, connection):
+        tiny_int_table = self.tables.tiny_int_table
+
+        # Insert a value
+        connection.execute(
+            tiny_int_table.insert(),
+            [{"id": 127}]  # 127 is typically the maximum value for a signed TINYINT
+        )
+
+        # Read the value back
+        result = connection.execute(select(tiny_int_table.c.id)).scalar()
+
+        # Verify the value
+        eq_(result, 127)
+
+        # Test with minimum value
+        connection.execute(
+            tiny_int_table.insert(),
+            [{"id": -128}]  # -128 is typically the minimum value for a signed TINYINT
+        )
+
+        result = connection.execute(select(tiny_int_table.c.id).order_by(tiny_int_table.c.id)).first()[0]
+        eq_(result, -128)
+
+    def test_tinyint_overflow(self, connection):
+        tiny_int_table = self.tables.tiny_int_table
+
+        # This should raise an exception as it's outside the TINYINT range
+        with assertions.expect_raises(Exception):  # Replace with specific exception if known
+            connection.execute(
+                tiny_int_table.insert(),
+                [{"id": 128}]  # 128 is typically outside the range of a signed TINYINT
+            )
+
+        with assertions.expect_raises(Exception):  # Replace with specific exception if known
+            connection.execute(
+                tiny_int_table.insert(),
+                [{"id": -129}]  # -129 is typically outside the range of a signed TINYINT
+            )
+
+class BitmapTest(fixtures.TablesTest):
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "bitmap_table",
+            metadata,
+            Column("id", Integer),
+            Column("bitmap_data", BITMAP)
+        )
+
+    """
+    Perform a simple test using Databend's bitmap data type to check
+    that the bitmap data is correctly inserted and retrieved.'
+    """
+    def test_bitmap_write_and_read(self, connection):
+        bitmap_table = self.tables.bitmap_table
+
+        # Insert a value
+        connection.execute(
+            bitmap_table.insert(),
+            [{"id": 1, "bitmap_data": '1,2,3'}]
+        )
+
+        # Read the value back
+        result = connection.execute(
+            select(bitmap_table.c.bitmap_data).where(bitmap_table.c.id == 1)
+        ).scalar()
+
+        # Verify the value
+        eq_(result, ('1,2,3'))
+
+    """
+    Perform a simple test using one of Databend's bitmap operations to check
+    that the Bitmap data is correctly manipulated.'
+    """
+    def test_bitmap_operations(self, connection):
+        bitmap_table = self.tables.bitmap_table
+
+        # Insert two values
+        connection.execute(
+            bitmap_table.insert(),
+            [
+                {"id": 1, "bitmap_data": "1,4,5"},
+                {"id": 2, "bitmap_data": "4,5"}
+            ]
+        )
+
+        # Perform a bitmap AND operation and convert the result to a string
+        result = connection.execute(
+            select(func.to_string(func.bitmap_and(
+                bitmap_table.c.bitmap_data,
+                func.to_bitmap("3,4,5")
+            ))).where(bitmap_table.c.id == 1)
+        ).scalar()
+
+        # Verify the result
+        eq_(result, "4,5")
