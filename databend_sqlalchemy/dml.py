@@ -251,6 +251,7 @@ class Compression(Enum):
     RAW_DEFLATE = "RAW_DEFLATE"
     XZ = "XZ"
     SNAPPY = "SNAPPY"
+    ZIP = "ZIP"
 
 
 class CopyFormat(ClauseElement):
