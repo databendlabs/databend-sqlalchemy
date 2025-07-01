@@ -140,13 +140,6 @@ class GEOMETRY(sqltypes.TypeEngine):
         super(GEOMETRY, self).__init__()
         self.srid = srid
 
-    # def bind_expression(self, bindvalue):
-    #     return func.st_geomfromwkt(bindvalue, type_=self)
-    #
-    # def column_expression(self, col):
-    #     # Convert bitmap to string using a custom function
-    #     return func.st_aswkt(col, type_=sqltypes.String)
-
 
 
 class GEOGRAPHY(sqltypes.TypeEngine):
@@ -157,31 +150,4 @@ class GEOGRAPHY(sqltypes.TypeEngine):
         super(GEOGRAPHY, self).__init__()
         self.srid = srid
 
-    def literal_processor(self, dialect):
-        def process(value):
-            if value is None:
-                return 'NULL'
-            if isinstance(value, str):
-                # Assume it's already in WKT format
-                return f"ST_GeogFromText('{value}')"
-            # If it's some other geographic object, you might need to convert it to WKT first
-            # This is just an example and might need to be adjusted based on your specific needs
-            return f"ST_GeogFromText('{value.wkt}')"
-
-        return process
-
-    def bind_expression(self, bindvalue):
-        return func.ST_GeogFromText(bindvalue, type_=self)
-
-    def column_expression(self, col):
-        return func.ST_AsText(col, type_=sqltypes.String)
-
-    def result_processor(self, dialect, coltype):
-        def process(value):
-            if value is None:
-                return None
-            # Assuming the database returns WKT
-            return value  # Or parse into a geographic object if needed
-
-        return process
 

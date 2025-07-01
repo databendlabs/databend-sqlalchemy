@@ -512,6 +512,10 @@ class GeometryTest(fixtures.TablesTest):
 
     @classmethod
     def define_tables(cls, metadata):
+        # Enable the creation of tables with GEOMETRY data type
+        with cls.bind.begin() as conn:
+            conn.execute(text("set enable_geo_create_table=1"))
+
         Table(
             "geometry_table",
             metadata,
@@ -520,8 +524,8 @@ class GeometryTest(fixtures.TablesTest):
         )
 
     """
-    Perform a simple test using Databend's bitmap data type to check
-    that the bitmap data is correctly inserted and retrieved.'
+    Perform a simple test using Databend's Geometry data type to check
+    that the data is correctly inserted and retrieved.'
     """
     def test_geometry_write_and_read(self, connection):
         geometry_table = self.tables.geometry_table
@@ -593,6 +597,10 @@ class GeographyTest(fixtures.TablesTest):
 
     @classmethod
     def define_tables(cls, metadata):
+        # Enable the creation of tables with GEOGRAPHY data type
+        with cls.bind.begin() as conn:
+            conn.execute(text("set enable_geo_create_table=1"))
+
         Table(
             "geography_table",
             metadata,
@@ -601,8 +609,8 @@ class GeographyTest(fixtures.TablesTest):
         )
 
     """
-    Perform a simple test using Databend's bitmap data type to check
-    that the bitmap data is correctly inserted and retrieved.'
+    Perform a simple test using Databend's Geography data type to check
+    that the data is correctly inserted and retrieved.'
     """
     def test_geography_write_and_read(self, connection):
         geography_table = self.tables.geography_table
