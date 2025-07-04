@@ -512,10 +512,6 @@ class GeometryTest(fixtures.TablesTest):
 
     @classmethod
     def define_tables(cls, metadata):
-        # Enable the creation of tables with GEOMETRY data type
-        with cls.bind.begin() as conn:
-            conn.execute(text("set enable_geo_create_table=1"))
-
         Table(
             "geometry_table",
             metadata,
@@ -597,10 +593,6 @@ class GeographyTest(fixtures.TablesTest):
 
     @classmethod
     def define_tables(cls, metadata):
-        # Enable the creation of tables with GEOGRAPHY data type
-        with cls.bind.begin() as conn:
-            conn.execute(text("set enable_geo_create_table=1"))
-
         Table(
             "geography_table",
             metadata,

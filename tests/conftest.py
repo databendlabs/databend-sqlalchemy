@@ -19,6 +19,7 @@ if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
     def receive_engine_connect(conn, r):
         cur = conn.cursor()
         cur.execute('SET global format_null_as_str = 0')
+        cur.execute('SET global enable_geo_create_table = 1')
         cur.close()
 
 
