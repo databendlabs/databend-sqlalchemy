@@ -23,7 +23,6 @@ dialect in conjunction with the :class:`_schema.Table` construct:
     Table("some_table", metadata, ..., databend_transient=True|False)
 
 """
-
 import decimal
 import re
 import operator
@@ -60,6 +59,17 @@ from sqlalchemy.types import (
     CHAR,
     TIMESTAMP,
 )
+
+import sqlalchemy
+from sqlalchemy import types as sqltypes
+from sqlalchemy.sql.base import Executable
+
+# Check SQLAlchemy version
+if sqlalchemy.__version__.startswith('2.'):
+    from sqlalchemy.types import DOUBLE
+else:
+    from .types import DOUBLE
+
 from sqlalchemy.engine import ExecutionContext, default
 from sqlalchemy.exc import DBAPIError, NoSuchTableError
 
@@ -71,7 +81,7 @@ from .dml import (
     AzureBlobStorage,
     AmazonS3,
 )
-from .types import INTERVAL
+from .types import INTERVAL, TINYINT, BITMAP, GEOMETRY, GEOGRAPHY
 
 RESERVED_WORDS = {
     "Error",
@@ -693,6 +703,7 @@ class MAP(sqltypes.TypeEngine):
         super(MAP, self).__init__()
 
 
+
 class DatabendDate(sqltypes.DATE):
     __visit_name__ = "DATE"
 
@@ -793,12 +804,26 @@ class DatabendInterval(INTERVAL):
     render_bind_cast = True
 
 
+class DatabendBitmap(BITMAP):
+    render_bind_cast = True
+
+
+class DatabendTinyInt(TINYINT):
+    render_bind_cast = True
+
+
+class DatabendGeometry(GEOMETRY):
+    render_bind_cast = True
+
+class DatabendGeography(GEOGRAPHY):
+    render_bind_cast = True
+
 # Type converters
 ischema_names = {
     "bigint": BIGINT,
     "int": INTEGER,
     "smallint": SMALLINT,
-    "tinyint": SMALLINT,
+    "tinyint": DatabendTinyInt,
     "int64": BIGINT,
     "int32": INTEGER,
     "int16": SMALLINT,
@@ -813,7 +838,7 @@ ischema_names = {
     "datetime": DatabendDateTime,
     "timestamp": DatabendDateTime,
     "float": FLOAT,
-    "double": FLOAT,
+    "double": DOUBLE,
     "float64": FLOAT,
     "float32": FLOAT,
     "string": VARCHAR,
@@ -826,7 +851,12 @@ ischema_names = {
     "binary": BINARY,
     "time": DatabendTime,
     "interval": DatabendInterval,
+    "bitmap": DatabendBitmap,
+    "geometry": DatabendGeometry,
+    "geography": DatabendGeography
 }
+
+
 
 # Column spec
 colspecs = {
@@ -1226,6 +1256,29 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
 
     def visit_INTERVAL(self, type, **kw):
         return "INTERVAL"
+
+    def visit_DOUBLE(self, type_, **kw):
+        return "DOUBLE"
+
+    def visit_TINYINT(self, type_, **kw):
+        return "TINYINT"
+
+    def visit_FLOAT(self, type_, **kw):
+        return "FLOAT"
+
+    def visit_BITMAP(self, type_, **kw):
+        return "BITMAP"
+
+    def visit_GEOMETRY(self, type_, **kw):
+        if type_.srid is not None:
+            return f"GEOMETRY(SRID {type_.srid})"
+        return "GEOMETRY"
+
+    def visit_GEOGRAPHY(self, type_, **kw):
+        if type_.srid is not None:
+            return f"GEOGRAPHY(SRID {type_.srid})"
+        return "GEOGRAPHY"
+
 
 
 class DatabendDDLCompiler(compiler.DDLCompiler):

@@ -13,15 +13,33 @@ from sqlalchemy.testing.suite import LikeFunctionsTest as _LikeFunctionsTest
 from sqlalchemy.testing.suite import LongNameBlowoutTest as _LongNameBlowoutTest
 from sqlalchemy.testing.suite import QuotedNameArgumentTest as _QuotedNameArgumentTest
 from sqlalchemy.testing.suite import JoinTest as _JoinTest
-from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
+
 from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursorsTest
-from sqlalchemy.testing.suite import EnumTest as _EnumTest
+
 from sqlalchemy.testing.suite import CTETest as _CTETest
 from sqlalchemy.testing.suite import JSONTest as _JSONTest
-from sqlalchemy import types as sql_types
-from sqlalchemy import testing, select
-from sqlalchemy.testing import config, eq_
+from sqlalchemy.testing.suite import IntegerTest as _IntegerTest
 
+from sqlalchemy import types as sql_types
+from sqlalchemy.testing import config
+from sqlalchemy import testing, Table, Column, Integer
+from sqlalchemy.testing import eq_, fixtures, assertions
+
+from databend_sqlalchemy.types import TINYINT, BITMAP, DOUBLE, GEOMETRY, GEOGRAPHY
+
+from packaging import version
+import sqlalchemy
+if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
+    from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
+    from sqlalchemy.testing.suite import EnumTest as _EnumTest
+else:
+    from sqlalchemy.testing.suite import ComponentReflectionTest as _ComponentReflectionTest
+
+    class ComponentReflectionTest(_ComponentReflectionTest):
+
+        @testing.skip("databend")
+        def test_get_indexes(self):
+            pass
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
 
@@ -186,9 +204,9 @@ class QuotedNameArgumentTest(_QuotedNameArgumentTest):
 class JoinTest(_JoinTest):
     __requires__ = ("foreign_keys",)
 
-
-class BizarroCharacterFKResolutionTest(_BizarroCharacterFKResolutionTest):
-    __requires__ = ("foreign_keys",)
+if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
+    class BizarroCharacterFKResolutionTest(_BizarroCharacterFKResolutionTest):
+        __requires__ = ("foreign_keys",)
 
 
 class BinaryTest(_BinaryTest):
@@ -274,13 +292,13 @@ class ServerSideCursorsTest(_ServerSideCursorsTest):
     def test_roundtrip_fetchmany(self):
         pass
 
+if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
+    class EnumTest(_EnumTest):
+        __backend__ = True
 
-class EnumTest(_EnumTest):
-    __backend__ = True
-
-    @testing.skip("databend")  # Skipped because no supporting enums yet
-    def test_round_trip_executemany(self, connection):
-        pass
+        @testing.skip("databend")  # Skipped because no supporting enums yet
+        def test_round_trip_executemany(self, connection):
+            pass
 
 
 class CTETest(_CTETest):
@@ -318,3 +336,332 @@ class JSONTest(_JSONTest):
     # ToDo - this does not yet work
     def test_path_typed_comparison(self, datatype, value):
         pass
+
+
+class IntegerTest(_IntegerTest, fixtures.TablesTest):
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "tiny_int_table",
+            metadata,
+            Column("id", TINYINT)
+        )
+
+    def test_tinyint_write_and_read(self, connection):
+        tiny_int_table = self.tables.tiny_int_table
+
+        # Insert a value
+        connection.execute(
+            tiny_int_table.insert(),
+            [{"id": 127}]  # 127 is typically the maximum value for a signed TINYINT
+        )
+
+        # Read the value back
+        result = connection.execute(select(tiny_int_table.c.id)).scalar()
+
+        # Verify the value
+        eq_(result, 127)
+
+        # Test with minimum value
+        connection.execute(
+            tiny_int_table.insert(),
+            [{"id": -128}]  # -128 is typically the minimum value for a signed TINYINT
+        )
+
+        result = connection.execute(select(tiny_int_table.c.id).order_by(tiny_int_table.c.id)).first()[0]
+        eq_(result, -128)
+
+    def test_tinyint_overflow(self, connection):
+        tiny_int_table = self.tables.tiny_int_table
+
+        # This should raise an exception as it's outside the TINYINT range
+        with assertions.expect_raises(Exception):  # Replace with specific exception if known
+            connection.execute(
+                tiny_int_table.insert(),
+                [{"id": 128}]  # 128 is typically outside the range of a signed TINYINT
+            )
+
+        with assertions.expect_raises(Exception):  # Replace with specific exception if known
+            connection.execute(
+                tiny_int_table.insert(),
+                [{"id": -129}]  # -129 is typically outside the range of a signed TINYINT
+            )
+
+
+class BitmapTest(fixtures.TablesTest):
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "bitmap_table",
+            metadata,
+            Column("id", Integer),
+            Column("bitmap_data", BITMAP)
+        )
+
+    """
+    Perform a simple test using Databend's bitmap data type to check
+    that the bitmap data is correctly inserted and retrieved.'
+    """
+    def test_bitmap_write_and_read(self, connection):
+        bitmap_table = self.tables.bitmap_table
+
+        # Insert a value
+        connection.execute(
+            bitmap_table.insert(),
+            [{"id": 1, "bitmap_data": '1,2,3'}]
+        )
+
+        # Read the value back
+        result = connection.execute(
+            select(bitmap_table.c.bitmap_data).where(bitmap_table.c.id == 1)
+        ).scalar()
+
+        # Verify the value
+        eq_(result, ('1,2,3'))
+
+    """
+    Perform a simple test using one of Databend's bitmap operations to check
+    that the Bitmap data is correctly manipulated.'
+    """
+    def test_bitmap_operations(self, connection):
+        bitmap_table = self.tables.bitmap_table
+
+        # Insert two values
+        connection.execute(
+            bitmap_table.insert(),
+            [
+                {"id": 1, "bitmap_data": "1,4,5"},
+                {"id": 2, "bitmap_data": "4,5"}
+            ]
+        )
+
+        # Perform a bitmap AND operation and convert the result to a string
+        result = connection.execute(
+            select(func.to_string(func.bitmap_and(
+                bitmap_table.c.bitmap_data,
+                func.to_bitmap("3,4,5")
+            ))).where(bitmap_table.c.id == 1)
+        ).scalar()
+
+        # Verify the result
+        eq_(result, "4,5")
+
+
+class DoubleTest(fixtures.TablesTest):
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "double_table",
+            metadata,
+            Column("id", Integer),
+            Column("double_data", DOUBLE)
+        )
+
+    def test_double_write_and_read(self, connection):
+        double_table = self.tables.double_table
+
+        # Insert a value
+        connection.execute(
+            double_table.insert(),
+            [{"id": 1, "double_data": -1.7976931348623157E+308}]
+        )
+
+        connection.execute(
+            double_table.insert(),
+            [{"id": 2, "double_data": 1.7976931348623157E+308}]
+        )
+
+        # Read the value back
+        result = connection.execute(
+            select(double_table.c.double_data).where(double_table.c.id == 1)
+        ).scalar()
+
+        # Verify the value
+        eq_(result, -1.7976931348623157E+308)
+
+        # Read the value back
+        result = connection.execute(
+            select(double_table.c.double_data).where(double_table.c.id == 2)
+        ).scalar()
+
+        # Verify the value
+        eq_(result, 1.7976931348623157E+308)
+
+
+    def test_double_overflow(self, connection):
+        double_table = self.tables.double_table
+
+        # This should raise an exception as it's outside the DOUBLE range
+        with assertions.expect_raises(Exception):
+            connection.execute(
+                double_table.insert(),
+                [{"id": 3, "double_data": float('inf')}]
+            )
+
+        with assertions.expect_raises(Exception):
+            connection.execute(
+                double_table.insert(),
+                [{"id": 3, "double_data": float('-inf')}]
+            )
+
+
+class GeometryTest(fixtures.TablesTest):
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "geometry_table",
+            metadata,
+            Column("id", Integer),
+            Column("geometry_data", GEOMETRY)
+        )
+
+    """
+    Perform a simple test using Databend's Geometry data type to check
+    that the data is correctly inserted and retrieved.'
+    """
+    def test_geometry_write_and_read(self, connection):
+        geometry_table = self.tables.geometry_table
+
+        # Insert a value
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 1, "geometry_data": 'POINT(10 20)'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 2, "geometry_data": 'LINESTRING(10 20, 30 40, 50 60)'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 3, "geometry_data": 'POLYGON((10 20, 30 40, 50 60, 10 20))'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 4, "geometry_data": 'MULTIPOINT((10 20), (30 40), (50 60))'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 5, "geometry_data": 'MULTILINESTRING((10 20, 30 40), (50 60, 70 80))'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 6, "geometry_data": 'MULTIPOLYGON(((10 20, 30 40, 50 60, 10 20)), ((15 25, 25 35, 35 45, 15 25)))'}]
+        )
+        connection.execute(
+            geometry_table.insert(),
+            [{"id": 7, "geometry_data": 'GEOMETRYCOLLECTION(POINT(10 20), LINESTRING(10 20, 30 40), POLYGON((10 20, 30 40, 50 60, 10 20)))'}]
+        )
+
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 1)
+        ).scalar()
+        eq_(result, ('{"type": "Point", "coordinates": [10,20]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 2)
+        ).scalar()
+        eq_(result, ('{"type": "LineString", "coordinates": [[10,20],[30,40],[50,60]]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 3)
+        ).scalar()
+        eq_(result, ('{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 4)
+        ).scalar()
+        eq_(result, ('{"type": "MultiPoint", "coordinates": [[10,20],[30,40],[50,60]]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 5)
+        ).scalar()
+        eq_(result, ('{"type": "MultiLineString", "coordinates": [[[10,20],[30,40]],[[50,60],[70,80]]]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 6)
+        ).scalar()
+        eq_(result, ('{"type": "MultiPolygon", "coordinates": [[[[10,20],[30,40],[50,60],[10,20]]],[[[15,25],[25,35],[35,45],[15,25]]]]}'))
+        result = connection.execute(
+            select(geometry_table.c.geometry_data).where(geometry_table.c.id == 7)
+        ).scalar()
+        eq_(result, ('{"type": "GeometryCollection", "geometries": [{"type": "Point", "coordinates": [10,20]},{"type": "LineString", "coordinates": [[10,20],[30,40]]},{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}]}'))
+
+
+
+
+
+class GeographyTest(fixtures.TablesTest):
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "geography_table",
+            metadata,
+            Column("id", Integer),
+            Column("geography_data", GEOGRAPHY)
+        )
+
+    """
+    Perform a simple test using Databend's Geography data type to check
+    that the data is correctly inserted and retrieved.'
+    """
+    def test_geography_write_and_read(self, connection):
+        geography_table = self.tables.geography_table
+
+        # Insert a value
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 1, "geography_data": 'POINT(10 20)'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 2, "geography_data": 'LINESTRING(10 20, 30 40, 50 60)'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 3, "geography_data": 'POLYGON((10 20, 30 40, 50 60, 10 20))'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 4, "geography_data": 'MULTIPOINT((10 20), (30 40), (50 60))'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 5, "geography_data": 'MULTILINESTRING((10 20, 30 40), (50 60, 70 80))'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 6, "geography_data": 'MULTIPOLYGON(((10 20, 30 40, 50 60, 10 20)), ((15 25, 25 35, 35 45, 15 25)))'}]
+        )
+        connection.execute(
+            geography_table.insert(),
+            [{"id": 7, "geography_data": 'GEOMETRYCOLLECTION(POINT(10 20), LINESTRING(10 20, 30 40), POLYGON((10 20, 30 40, 50 60, 10 20)))'}]
+        )
+
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 1)
+        ).scalar()
+        eq_(result, ('{"type": "Point", "coordinates": [10,20]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 2)
+        ).scalar()
+        eq_(result, ('{"type": "LineString", "coordinates": [[10,20],[30,40],[50,60]]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 3)
+        ).scalar()
+        eq_(result, ('{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 4)
+        ).scalar()
+        eq_(result, ('{"type": "MultiPoint", "coordinates": [[10,20],[30,40],[50,60]]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 5)
+        ).scalar()
+        eq_(result, ('{"type": "MultiLineString", "coordinates": [[[10,20],[30,40]],[[50,60],[70,80]]]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 6)
+        ).scalar()
+        eq_(result, ('{"type": "MultiPolygon", "coordinates": [[[[10,20],[30,40],[50,60],[10,20]]],[[[15,25],[25,35],[35,45],[15,25]]]]}'))
+        result = connection.execute(
+            select(geography_table.c.geography_data).where(geography_table.c.id == 7)
+        ).scalar()
+        eq_(result, ('{"type": "GeometryCollection", "geometries": [{"type": "Point", "coordinates": [10,20]},{"type": "LineString", "coordinates": [[10,20],[30,40]]},{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}]}'))

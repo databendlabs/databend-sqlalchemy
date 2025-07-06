@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Optional, Type, Any
 
+from sqlalchemy import func
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql import type_api
@@ -73,3 +74,80 @@ class INTERVAL(type_api.NativeForEmulated, sqltypes._AbstractInterval):
             return f"to_interval('{value.total_seconds()} seconds')"
 
         return process
+
+
+class TINYINT(sqltypes.Integer):
+    __visit_name__ = "TINYINT"
+    native = True
+
+
+class DOUBLE(sqltypes.Float):
+    __visit_name__ = "DOUBLE"
+    native = True
+
+
+class FLOAT(sqltypes.Float):
+    __visit_name__ = "FLOAT"
+    native = True
+
+
+#  The “CamelCase” types are to the greatest degree possible database agnostic
+
+#  For these datatypes, specific SQLAlchemy dialects provide backend-specific “UPPERCASE” datatypes, for a SQL type that has no analogue on other backends
+
+
+class BITMAP(sqltypes.TypeEngine):
+    __visit_name__ = "BITMAP"
+    render_bind_cast = True
+
+    def __init__(self, **kwargs):
+        super(BITMAP, self).__init__()
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        # Databend returns bitmaps as strings of comma-separated integers
+        return set(int(x) for x in value.split(',') if x)
+
+    def bind_expression(self, bindvalue):
+        return func.to_bitmap(bindvalue, type_=self)
+
+    def column_expression(self, col):
+        # Convert bitmap to string using a custom function
+        return func.to_string(col, type_=sqltypes.String)
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value is None:
+                return None
+            if isinstance(value, set):
+                return ','.join(str(x) for x in sorted(value))
+            return str(value)
+        return process
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value is None:
+                return None
+            return set(int(x) for x in value.split(',') if x)
+        return process
+
+
+class GEOMETRY(sqltypes.TypeEngine):
+    __visit_name__ = "GEOMETRY"
+
+    def __init__(self, srid=None):
+        super(GEOMETRY, self).__init__()
+        self.srid = srid
+
+
+
+class GEOGRAPHY(sqltypes.TypeEngine):
+    __visit_name__ = "GEOGRAPHY"
+    native = True
+
+    def __init__(self, srid=None):
+        super(GEOGRAPHY, self).__init__()
+        self.srid = srid
+
+
