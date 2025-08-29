@@ -1491,24 +1491,24 @@ class DatabendDialect(default.DefaultDialect):
     def get_schema_names(self, connection, **kw):
         return [row[0] for row in connection.execute(text("SHOW DATABASES"))]
 
-    def _get_table_columns(self, connection, table_name, schema):
-        if schema is None:
-            schema = self.default_schema_name
-        quote_table_name = self.identifier_preparer.quote_identifier(table_name)
-        quote_schema = self.identifier_preparer.quote_identifier(schema)
-
-        return connection.execute(
-            text(f"DESC {quote_schema}.{quote_table_name}")
-        ).fetchall()
-
     @reflection.cache
     def has_table(self, connection, table_name, schema=None, **kw):
+        table_name_query = """
+            select case when exists(
+                select table_name
+                from information_schema.tables
+                where table_schema = :schema_name
+                and table_name = :table_name
+            ) then 1 else 0 end
+            """
+        query = text(table_name_query).bindparams(
+            bindparam("schema_name", type_=sqltypes.Unicode),
+            bindparam("table_name", type_=sqltypes.Unicode),
+        )
         if schema is None:
             schema = self.default_schema_name
-        quote_table_name = self.identifier_preparer.quote_identifier(table_name)
-        quote_schema = self.identifier_preparer.quote_identifier(schema)
-        query = f"""EXISTS TABLE {quote_schema}.{quote_table_name}"""
-        r = connection.scalar(text(query))
+
+        r = connection.scalar(query, dict(schema_name=schema, table_name=table_name))
         if r == 1:
             return True
         return False
@@ -1550,21 +1550,26 @@ class DatabendDialect(default.DefaultDialect):
     def get_view_definition(self, connection, view_name, schema=None, **kw):
         if schema is None:
             schema = self.default_schema_name
-        quote_schema = self.identifier_preparer.quote_identifier(schema)
-        quote_view_name = self.identifier_preparer.quote_identifier(view_name)
-        full_view_name = f"{quote_schema}.{quote_view_name}"
-
-        # ToDo : perhaps can be removed if we get `SHOW CREATE VIEW`
-        if view_name not in self.get_view_names(connection, schema):
-            raise NoSuchTableError(full_view_name)
-
-        query = f"""SHOW CREATE TABLE {full_view_name}"""
-        try:
-            view_def = connection.execute(text(query)).first()
-            return view_def[1]
-        except DBAPIError as e:
-            if "1025" in e.orig.message:  # ToDo: The errors need parsing properly
-                raise NoSuchTableError(full_view_name) from e
+        query = text(
+            """
+            select view_query
+            from system.views
+            where name = :view_name
+            and database = :schema_name
+            """
+        ).bindparams(
+            bindparam("view_name", type_=sqltypes.UnicodeText),
+            bindparam("schema_name", type_=sqltypes.Unicode),
+        )
+        r = connection.scalar(
+            query, dict(view_name=view_name, schema_name=schema)
+        )
+        if not r:
+            raise NoSuchTableError(
+                f"{self.identifier_preparer.quote_identifier(schema)}."
+                f"{self.identifier_preparer.quote_identifier(view_name)}"
+            )
+        return r
 
     def _get_column_type(self, column_type):
         pattern = r"(?:Nullable)*(?:\()*(\w+)(?:\((.*?)\))?(?:\))*"

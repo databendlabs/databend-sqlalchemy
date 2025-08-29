@@ -31,7 +31,8 @@ from databend_sqlalchemy.types import TINYINT, BITMAP, DOUBLE, GEOMETRY, GEOGRAP
 from packaging import version
 import sqlalchemy
 if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
-    from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
+    if version.parse(sqlalchemy.__version__) < version.parse('2.0.42'):
+        from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
     from sqlalchemy.testing.suite import EnumTest as _EnumTest
 else:
     from sqlalchemy.testing.suite import ComponentReflectionTest as _ComponentReflectionTest
@@ -43,14 +44,36 @@ else:
             pass
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
-
+    @testing.skip("databend") #ToDo  No length in Databend
     @testing.requires.table_reflection
     def test_varchar_reflection(self, connection, metadata):
         typ = self._type_round_trip(
             connection, metadata, sql_types.String(52)
         )[0]
         assert isinstance(typ, sql_types.String)
-        # eq_(typ.length, 52)  #  No length in Databend
+        eq_(typ.length, 52)
+
+    @testing.skip("databend")  # ToDo  No length in Databend
+    @testing.requires.table_reflection
+    @testing.combinations(
+        sql_types.String,
+        sql_types.VARCHAR,
+        sql_types.CHAR,
+        (sql_types.NVARCHAR, testing.requires.nvarchar_types),
+        (sql_types.NCHAR, testing.requires.nvarchar_types),
+        argnames="type_",
+    )
+    def test_string_length_reflection(self, connection, metadata, type_):
+        typ = self._type_round_trip(connection, metadata, type_(52))[0]
+        if issubclass(type_, sql_types.VARCHAR):
+            assert isinstance(typ, sql_types.VARCHAR)
+        elif issubclass(type_, sql_types.CHAR):
+            assert isinstance(typ, sql_types.CHAR)
+        else:
+            assert isinstance(typ, sql_types.String)
+
+        eq_(typ.length, 52)
+        assert isinstance(typ.length, int)
 
 
 class BooleanTest(_BooleanTest):
@@ -205,7 +228,7 @@ class QuotedNameArgumentTest(_QuotedNameArgumentTest):
 class JoinTest(_JoinTest):
     __requires__ = ("foreign_keys",)
 
-if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
+if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0') and version.parse(sqlalchemy.__version__) < version.parse('2.0.42'):
     class BizarroCharacterFKResolutionTest(_BizarroCharacterFKResolutionTest):
         __requires__ = ("foreign_keys",)
 
