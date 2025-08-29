@@ -31,7 +31,7 @@ from types import NoneType
 
 import sqlalchemy.engine.reflection
 import sqlalchemy.types as sqltypes
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, List
 from sqlalchemy import util as sa_util
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import (
@@ -703,7 +703,6 @@ class MAP(sqltypes.TypeEngine):
         super(MAP, self).__init__()
 
 
-
 class DatabendDate(sqltypes.DATE):
     __visit_name__ = "DATE"
 
@@ -857,7 +856,6 @@ ischema_names = {
 }
 
 
-
 # Column spec
 colspecs = {
     sqltypes.Interval: DatabendInterval,
@@ -871,6 +869,12 @@ colspecs = {
 
 class DatabendIdentifierPreparer(PGIdentifierPreparer):
     reserved_words = {r.lower() for r in RESERVED_WORDS}
+
+    # overridden to exclude schema from sequence
+    def format_sequence(
+        self, sequence, use_schema: bool = True
+    ) -> str:
+        return super().format_sequence(sequence, use_schema=False)
 
 
 class DatabendCompiler(PGCompiler):
@@ -1230,6 +1234,15 @@ class DatabendExecutionContext(default.DefaultExecutionContext):
     def copy_into_location_results(self) -> dict:
         return self._copy_into_location_results
 
+    def fire_sequence(self, seq, type_):
+        return self._execute_scalar(
+            (
+                "select nextval(%s)"
+                % self.identifier_preparer.format_sequence(seq)
+            ),
+            type_,
+        )
+
 
 class DatabendTypeCompiler(compiler.GenericTypeCompiler):
     def visit_ARRAY(self, type_, **kw):
@@ -1278,7 +1291,6 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
         if type_.srid is not None:
             return f"GEOGRAPHY(SRID {type_.srid})"
         return "GEOGRAPHY"
-
 
 
 class DatabendDDLCompiler(compiler.DDLCompiler):
@@ -1394,6 +1406,7 @@ class DatabendDialect(default.DefaultDialect):
     supports_empty_insert = False
     supports_is_distinct_from = True
     supports_multivalues_insert = True
+    supports_sequences = True
 
     supports_statement_cache = False
     supports_server_side_cursors = True
@@ -1478,24 +1491,24 @@ class DatabendDialect(default.DefaultDialect):
     def get_schema_names(self, connection, **kw):
         return [row[0] for row in connection.execute(text("SHOW DATABASES"))]
 
-    def _get_table_columns(self, connection, table_name, schema):
-        if schema is None:
-            schema = self.default_schema_name
-        quote_table_name = self.identifier_preparer.quote_identifier(table_name)
-        quote_schema = self.identifier_preparer.quote_identifier(schema)
-
-        return connection.execute(
-            text(f"DESC {quote_schema}.{quote_table_name}")
-        ).fetchall()
-
     @reflection.cache
     def has_table(self, connection, table_name, schema=None, **kw):
+        table_name_query = """
+            select case when exists(
+                select table_name
+                from information_schema.tables
+                where table_schema = :schema_name
+                and table_name = :table_name
+            ) then 1 else 0 end
+            """
+        query = text(table_name_query).bindparams(
+            bindparam("schema_name", type_=sqltypes.Unicode),
+            bindparam("table_name", type_=sqltypes.Unicode),
+        )
         if schema is None:
             schema = self.default_schema_name
-        quote_table_name = self.identifier_preparer.quote_identifier(table_name)
-        quote_schema = self.identifier_preparer.quote_identifier(schema)
-        query = f"""EXISTS TABLE {quote_schema}.{quote_table_name}"""
-        r = connection.scalar(text(query))
+
+        r = connection.scalar(query, dict(schema_name=schema, table_name=table_name))
         if r == 1:
             return True
         return False
@@ -1537,21 +1550,26 @@ class DatabendDialect(default.DefaultDialect):
     def get_view_definition(self, connection, view_name, schema=None, **kw):
         if schema is None:
             schema = self.default_schema_name
-        quote_schema = self.identifier_preparer.quote_identifier(schema)
-        quote_view_name = self.identifier_preparer.quote_identifier(view_name)
-        full_view_name = f"{quote_schema}.{quote_view_name}"
-
-        # ToDo : perhaps can be removed if we get `SHOW CREATE VIEW`
-        if view_name not in self.get_view_names(connection, schema):
-            raise NoSuchTableError(full_view_name)
-
-        query = f"""SHOW CREATE TABLE {full_view_name}"""
-        try:
-            view_def = connection.execute(text(query)).first()
-            return view_def[1]
-        except DBAPIError as e:
-            if "1025" in e.orig.message:  # ToDo: The errors need parsing properly
-                raise NoSuchTableError(full_view_name) from e
+        query = text(
+            """
+            select view_query
+            from system.views
+            where name = :view_name
+            and database = :schema_name
+            """
+        ).bindparams(
+            bindparam("view_name", type_=sqltypes.UnicodeText),
+            bindparam("schema_name", type_=sqltypes.Unicode),
+        )
+        r = connection.scalar(
+            query, dict(view_name=view_name, schema_name=schema)
+        )
+        if not r:
+            raise NoSuchTableError(
+                f"{self.identifier_preparer.quote_identifier(schema)}."
+                f"{self.identifier_preparer.quote_identifier(view_name)}"
+            )
+        return r
 
     def _get_column_type(self, column_type):
         pattern = r"(?:Nullable)*(?:\()*(\w+)(?:\((.*?)\))?(?:\))*"
@@ -1620,7 +1638,6 @@ class DatabendDialect(default.DefaultDialect):
 
         result = connection.execute(query, dict(schema_name=schema))
         return [row[0] for row in result]
-
 
     @reflection.cache
     def get_view_names(self, connection, schema=None, **kw):
@@ -1762,7 +1779,6 @@ class DatabendDialect(default.DefaultDialect):
             schema='system',
         ).alias("a_tab_comments")
 
-
         has_filter_names, params = self._prepare_filter_names(filter_names)
         owner = schema or self.default_schema_name
 
@@ -1803,6 +1819,20 @@ class DatabendDialect(default.DefaultDialect):
     def _check_unicode_description(self, connection):
         # We decode everything as UTF-8
         return True
+
+    @reflection.cache
+    def get_sequence_names(self, connection, schema: Optional[str] = None, **kw: Any) -> List[str]:
+        # N.B. sequences are not defined per schema/database
+        sequence_query = """
+            show sequences
+        """
+        query = text(sequence_query)
+        result = connection.execute(query)
+        return [row[0] for row in result]
+
+    def has_sequence(self, connection, sequence_name: str, schema: Optional[str] = None, **kw: Any) -> bool:
+        # N.B. sequences are not defined per schema/database
+        return sequence_name in self.get_sequence_names(connection, schema, **kw)
 
 
 dialect = DatabendDialect

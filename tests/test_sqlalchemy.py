@@ -13,6 +13,7 @@ from sqlalchemy.testing.suite import LikeFunctionsTest as _LikeFunctionsTest
 from sqlalchemy.testing.suite import LongNameBlowoutTest as _LongNameBlowoutTest
 from sqlalchemy.testing.suite import QuotedNameArgumentTest as _QuotedNameArgumentTest
 from sqlalchemy.testing.suite import JoinTest as _JoinTest
+from sqlalchemy.testing.suite import HasSequenceTest as _HasSequenceTest
 
 from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursorsTest
 
@@ -21,7 +22,7 @@ from sqlalchemy.testing.suite import JSONTest as _JSONTest
 from sqlalchemy.testing.suite import IntegerTest as _IntegerTest
 
 from sqlalchemy import types as sql_types
-from sqlalchemy.testing import config
+from sqlalchemy.testing import config, skip_test
 from sqlalchemy import testing, Table, Column, Integer
 from sqlalchemy.testing import eq_, fixtures, assertions
 
@@ -30,7 +31,8 @@ from databend_sqlalchemy.types import TINYINT, BITMAP, DOUBLE, GEOMETRY, GEOGRAP
 from packaging import version
 import sqlalchemy
 if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
-    from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
+    if version.parse(sqlalchemy.__version__) < version.parse('2.0.42'):
+        from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
     from sqlalchemy.testing.suite import EnumTest as _EnumTest
 else:
     from sqlalchemy.testing.suite import ComponentReflectionTest as _ComponentReflectionTest
@@ -42,14 +44,36 @@ else:
             pass
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
-
+    @testing.skip("databend") #ToDo  No length in Databend
     @testing.requires.table_reflection
     def test_varchar_reflection(self, connection, metadata):
         typ = self._type_round_trip(
             connection, metadata, sql_types.String(52)
         )[0]
         assert isinstance(typ, sql_types.String)
-        # eq_(typ.length, 52)  #  No length in Databend
+        eq_(typ.length, 52)
+
+    @testing.skip("databend")  # ToDo  No length in Databend
+    @testing.requires.table_reflection
+    @testing.combinations(
+        sql_types.String,
+        sql_types.VARCHAR,
+        sql_types.CHAR,
+        (sql_types.NVARCHAR, testing.requires.nvarchar_types),
+        (sql_types.NCHAR, testing.requires.nvarchar_types),
+        argnames="type_",
+    )
+    def test_string_length_reflection(self, connection, metadata, type_):
+        typ = self._type_round_trip(connection, metadata, type_(52))[0]
+        if issubclass(type_, sql_types.VARCHAR):
+            assert isinstance(typ, sql_types.VARCHAR)
+        elif issubclass(type_, sql_types.CHAR):
+            assert isinstance(typ, sql_types.CHAR)
+        else:
+            assert isinstance(typ, sql_types.String)
+
+        eq_(typ.length, 52)
+        assert isinstance(typ.length, int)
 
 
 class BooleanTest(_BooleanTest):
@@ -204,7 +228,7 @@ class QuotedNameArgumentTest(_QuotedNameArgumentTest):
 class JoinTest(_JoinTest):
     __requires__ = ("foreign_keys",)
 
-if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
+if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0') and version.parse(sqlalchemy.__version__) < version.parse('2.0.42'):
     class BizarroCharacterFKResolutionTest(_BizarroCharacterFKResolutionTest):
         __requires__ = ("foreign_keys",)
 
@@ -586,9 +610,6 @@ class GeometryTest(fixtures.TablesTest):
         eq_(result, ('{"type": "GeometryCollection", "geometries": [{"type": "Point", "coordinates": [10,20]},{"type": "LineString", "coordinates": [[10,20],[30,40]]},{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}]}'))
 
 
-
-
-
 class GeographyTest(fixtures.TablesTest):
 
     @classmethod
@@ -665,3 +686,73 @@ class GeographyTest(fixtures.TablesTest):
             select(geography_table.c.geography_data).where(geography_table.c.id == 7)
         ).scalar()
         eq_(result, ('{"type": "GeometryCollection", "geometries": [{"type": "Point", "coordinates": [10,20]},{"type": "LineString", "coordinates": [[10,20],[30,40]]},{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}]}'))
+
+
+class HasSequenceTest(_HasSequenceTest):
+
+    # ToDo - overridden other_seq definition due to lack of sequence ddl support for nominvalue nomaxvalue
+    @classmethod
+    def define_tables(cls, metadata):
+        normalize_sequence(config, Sequence("user_id_seq", metadata=metadata))
+        normalize_sequence(
+            config,
+            Sequence(
+                "other_seq",
+                metadata=metadata,
+                # nomaxvalue=True,
+                # nominvalue=True,
+            ),
+        )
+        if testing.requires.schemas.enabled:
+            #ToDo - omitted because Databend does not allow schema on sequence
+            # normalize_sequence(
+            #     config,
+            #     Sequence(
+            #         "user_id_seq", schema=config.test_schema, metadata=metadata
+            #     ),
+            # )
+            normalize_sequence(
+                config,
+                Sequence(
+                    "schema_seq", schema=config.test_schema, metadata=metadata
+                ),
+            )
+        Table(
+            "user_id_table",
+            metadata,
+            Column("id", Integer, primary_key=True),
+        )
+
+    @testing.skip("databend")  # ToDo - requires definition of sequences with schema
+    def test_has_sequence_remote_not_in_default(self, connection):
+        eq_(inspect(connection).has_sequence("schema_seq"), False)
+
+    @testing.skip("databend")  # ToDo - requires definition of sequences with schema
+    def test_get_sequence_names(self, connection):
+        exp = {"other_seq", "user_id_seq"}
+
+        res = set(inspect(connection).get_sequence_names())
+        is_true(res.intersection(exp) == exp)
+        is_true("schema_seq" not in res)
+
+    @testing.skip("databend")  # ToDo - requires definition of sequences with schema
+    @testing.requires.schemas
+    def test_get_sequence_names_no_sequence_schema(self, connection):
+        eq_(
+            inspect(connection).get_sequence_names(
+                schema=config.test_schema_2
+            ),
+            [],
+        )
+
+    @testing.skip("databend")  # ToDo - requires definition of sequences with schema
+    @testing.requires.schemas
+    def test_get_sequence_names_sequences_schema(self, connection):
+        eq_(
+            sorted(
+                inspect(connection).get_sequence_names(
+                    schema=config.test_schema
+                )
+            ),
+            ["schema_seq", "user_id_seq"],
+        )
