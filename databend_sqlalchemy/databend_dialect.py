@@ -31,7 +31,7 @@ from types import NoneType
 
 import sqlalchemy.engine.reflection
 import sqlalchemy.types as sqltypes
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, List
 from sqlalchemy import util as sa_util
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import (
@@ -703,7 +703,6 @@ class MAP(sqltypes.TypeEngine):
         super(MAP, self).__init__()
 
 
-
 class DatabendDate(sqltypes.DATE):
     __visit_name__ = "DATE"
 
@@ -857,7 +856,6 @@ ischema_names = {
 }
 
 
-
 # Column spec
 colspecs = {
     sqltypes.Interval: DatabendInterval,
@@ -871,6 +869,12 @@ colspecs = {
 
 class DatabendIdentifierPreparer(PGIdentifierPreparer):
     reserved_words = {r.lower() for r in RESERVED_WORDS}
+
+    # overridden to exclude schema from sequence
+    def format_sequence(
+        self, sequence, use_schema: bool = True
+    ) -> str:
+        return super().format_sequence(sequence, use_schema=False)
 
 
 class DatabendCompiler(PGCompiler):
@@ -1230,6 +1234,15 @@ class DatabendExecutionContext(default.DefaultExecutionContext):
     def copy_into_location_results(self) -> dict:
         return self._copy_into_location_results
 
+    def fire_sequence(self, seq, type_):
+        return self._execute_scalar(
+            (
+                "select nextval(%s)"
+                % self.identifier_preparer.format_sequence(seq)
+            ),
+            type_,
+        )
+
 
 class DatabendTypeCompiler(compiler.GenericTypeCompiler):
     def visit_ARRAY(self, type_, **kw):
@@ -1278,7 +1291,6 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
         if type_.srid is not None:
             return f"GEOGRAPHY(SRID {type_.srid})"
         return "GEOGRAPHY"
-
 
 
 class DatabendDDLCompiler(compiler.DDLCompiler):
@@ -1394,6 +1406,7 @@ class DatabendDialect(default.DefaultDialect):
     supports_empty_insert = False
     supports_is_distinct_from = True
     supports_multivalues_insert = True
+    supports_sequences = True
 
     supports_statement_cache = False
     supports_server_side_cursors = True
@@ -1621,7 +1634,6 @@ class DatabendDialect(default.DefaultDialect):
         result = connection.execute(query, dict(schema_name=schema))
         return [row[0] for row in result]
 
-
     @reflection.cache
     def get_view_names(self, connection, schema=None, **kw):
         view_name_query = """
@@ -1762,7 +1774,6 @@ class DatabendDialect(default.DefaultDialect):
             schema='system',
         ).alias("a_tab_comments")
 
-
         has_filter_names, params = self._prepare_filter_names(filter_names)
         owner = schema or self.default_schema_name
 
@@ -1803,6 +1814,20 @@ class DatabendDialect(default.DefaultDialect):
     def _check_unicode_description(self, connection):
         # We decode everything as UTF-8
         return True
+
+    @reflection.cache
+    def get_sequence_names(self, connection, schema: Optional[str] = None, **kw: Any) -> List[str]:
+        # N.B. sequences are not defined per schema/database
+        sequence_query = """
+            show sequences
+        """
+        query = text(sequence_query)
+        result = connection.execute(query)
+        return [row[0] for row in result]
+
+    def has_sequence(self, connection, sequence_name: str, schema: Optional[str] = None, **kw: Any) -> bool:
+        # N.B. sequences are not defined per schema/database
+        return sequence_name in self.get_sequence_names(connection, schema, **kw)
 
 
 dialect = DatabendDialect

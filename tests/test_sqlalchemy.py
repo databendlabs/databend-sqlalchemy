@@ -13,6 +13,7 @@ from sqlalchemy.testing.suite import LikeFunctionsTest as _LikeFunctionsTest
 from sqlalchemy.testing.suite import LongNameBlowoutTest as _LongNameBlowoutTest
 from sqlalchemy.testing.suite import QuotedNameArgumentTest as _QuotedNameArgumentTest
 from sqlalchemy.testing.suite import JoinTest as _JoinTest
+from sqlalchemy.testing.suite import HasSequenceTest as _HasSequenceTest
 
 from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursorsTest
 
@@ -21,7 +22,7 @@ from sqlalchemy.testing.suite import JSONTest as _JSONTest
 from sqlalchemy.testing.suite import IntegerTest as _IntegerTest
 
 from sqlalchemy import types as sql_types
-from sqlalchemy.testing import config
+from sqlalchemy.testing import config, skip_test
 from sqlalchemy import testing, Table, Column, Integer
 from sqlalchemy.testing import eq_, fixtures, assertions
 
@@ -586,9 +587,6 @@ class GeometryTest(fixtures.TablesTest):
         eq_(result, ('{"type": "GeometryCollection", "geometries": [{"type": "Point", "coordinates": [10,20]},{"type": "LineString", "coordinates": [[10,20],[30,40]]},{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}]}'))
 
 
-
-
-
 class GeographyTest(fixtures.TablesTest):
 
     @classmethod
@@ -665,3 +663,73 @@ class GeographyTest(fixtures.TablesTest):
             select(geography_table.c.geography_data).where(geography_table.c.id == 7)
         ).scalar()
         eq_(result, ('{"type": "GeometryCollection", "geometries": [{"type": "Point", "coordinates": [10,20]},{"type": "LineString", "coordinates": [[10,20],[30,40]]},{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}]}'))
+
+
+class HasSequenceTest(_HasSequenceTest):
+
+    # ToDo - overridden other_seq definition due to lack of sequence ddl support for nominvalue nomaxvalue
+    @classmethod
+    def define_tables(cls, metadata):
+        normalize_sequence(config, Sequence("user_id_seq", metadata=metadata))
+        normalize_sequence(
+            config,
+            Sequence(
+                "other_seq",
+                metadata=metadata,
+                # nomaxvalue=True,
+                # nominvalue=True,
+            ),
+        )
+        if testing.requires.schemas.enabled:
+            #ToDo - omitted because Databend does not allow schema on sequence
+            # normalize_sequence(
+            #     config,
+            #     Sequence(
+            #         "user_id_seq", schema=config.test_schema, metadata=metadata
+            #     ),
+            # )
+            normalize_sequence(
+                config,
+                Sequence(
+                    "schema_seq", schema=config.test_schema, metadata=metadata
+                ),
+            )
+        Table(
+            "user_id_table",
+            metadata,
+            Column("id", Integer, primary_key=True),
+        )
+
+    @testing.skip("databend")  # ToDo - requires definition of sequences with schema
+    def test_has_sequence_remote_not_in_default(self, connection):
+        eq_(inspect(connection).has_sequence("schema_seq"), False)
+
+    @testing.skip("databend")  # ToDo - requires definition of sequences with schema
+    def test_get_sequence_names(self, connection):
+        exp = {"other_seq", "user_id_seq"}
+
+        res = set(inspect(connection).get_sequence_names())
+        is_true(res.intersection(exp) == exp)
+        is_true("schema_seq" not in res)
+
+    @testing.skip("databend")  # ToDo - requires definition of sequences with schema
+    @testing.requires.schemas
+    def test_get_sequence_names_no_sequence_schema(self, connection):
+        eq_(
+            inspect(connection).get_sequence_names(
+                schema=config.test_schema_2
+            ),
+            [],
+        )
+
+    @testing.skip("databend")  # ToDo - requires definition of sequences with schema
+    @testing.requires.schemas
+    def test_get_sequence_names_sequences_schema(self, connection):
+        eq_(
+            sorted(
+                inspect(connection).get_sequence_names(
+                    schema=config.test_schema
+                )
+            ),
+            ["schema_seq", "user_id_seq"],
+        )
