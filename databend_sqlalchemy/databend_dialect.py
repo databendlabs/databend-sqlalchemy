@@ -1517,7 +1517,7 @@ class DatabendDialect(default.DefaultDialect):
     def get_columns(self, connection, table_name, schema=None, **kw):
         query = text(
             """
-            select column_name, column_type, is_nullable, nullif(column_comment, '')
+            select column_name, data_type, is_nullable, nullif(column_comment, '')
             from information_schema.columns
             where table_name = :table_name
             and table_schema = :schema_name
