@@ -728,6 +728,8 @@ class DatabendDateTime(sqltypes.DATETIME):
 
     def result_processor(self, dialect, coltype):
         def process(value):
+            if value is None:
+                return None
             if isinstance(value, str):
                 m = self._reg.match(value)
                 if not m:
@@ -736,7 +738,7 @@ class DatabendDateTime(sqltypes.DATETIME):
                     )
                 return datetime.datetime(*[int(x or 0) for x in m.groups()])
             else:
-                return value
+                return value.replace(tzinfo=None)
 
         return process
 
@@ -766,7 +768,7 @@ class DatabendTime(sqltypes.TIME):
                     )
                 return datetime.time(*[int(x or 0) for x in m.groups()])
             else:
-                return value.time()
+                return value.time().replace(tzinfo=None)
 
         return process
 
