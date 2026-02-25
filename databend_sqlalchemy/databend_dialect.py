@@ -728,6 +728,8 @@ class DatabendDateTime(sqltypes.DATETIME):
 
     def result_processor(self, dialect, coltype):
         def process(value):
+            if value is None:
+                return None
             if isinstance(value, str):
                 m = self._reg.match(value)
                 if not m:
@@ -736,7 +738,7 @@ class DatabendDateTime(sqltypes.DATETIME):
                     )
                 return datetime.datetime(*[int(x or 0) for x in m.groups()])
             else:
-                return value
+                return value.replace(tzinfo=None)
 
         return process
 
@@ -766,7 +768,7 @@ class DatabendTime(sqltypes.TIME):
                     )
                 return datetime.time(*[int(x or 0) for x in m.groups()])
             else:
-                return value.time()
+                return value.time().replace(tzinfo=None)
 
         return process
 
@@ -1517,7 +1519,7 @@ class DatabendDialect(default.DefaultDialect):
     def get_columns(self, connection, table_name, schema=None, **kw):
         query = text(
             """
-            select column_name, column_type, is_nullable, nullif(column_comment, '')
+            select column_name, data_type, is_nullable, nullif(column_comment, '')
             from information_schema.columns
             where table_name = :table_name
             and table_schema = :schema_name
