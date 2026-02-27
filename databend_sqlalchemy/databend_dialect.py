@@ -1823,7 +1823,7 @@ class DatabendDialect(default.DefaultDialect):
         return True
 
     @reflection.cache
-    def get_sequence_names(self, connection, schema: Optional[str] = None, **kw: Any) -> List[str]:
+    def get_sequence_names(self, connection, schema=None, **kw):
         # N.B. sequences are not defined per schema/database
         sequence_query = """
             show sequences
