@@ -41,6 +41,9 @@ class ParamEscaper:
             item.replace("\\", "\\\\").replace("'", "\\'").replace("%", "%%")
         )
 
+    def escape_binary(self, item):
+        return f"unhex('{bytes(item).hex()}')"
+
     def escape_item(self, item):
         if item is None:
             return "NULL"
@@ -59,6 +62,8 @@ class ParamEscaper:
             return self.escape_string(item.strftime("%Y-%m-%d")) + "::date"
         elif isinstance(item, dict):
             return self.escape_string(f'parse_json({json.dumps(item)})')
+        elif isinstance(item, (bytes, bytearray, memoryview)):
+            return self.escape_binary(item)
         else:
             return self.escape_string(item)
 
