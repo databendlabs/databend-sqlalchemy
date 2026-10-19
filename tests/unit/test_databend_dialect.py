@@ -1,3 +1,4 @@
+import datetime
 import os
 from unittest import mock
 
@@ -228,3 +229,32 @@ def test_extract_nullable_string():
         assert expected_types[i] == true_type
         i += 1
         print(true_type)
+
+
+def test_datetime_result_processor_timezone_handling():
+    # The driver returns tz-aware (UTC) datetimes; a plain DateTime()/TIMESTAMP
+    # column (timezone=False) must yield naive values so the compliance suite's
+    # naive round-trips hold, while a timezone=True column keeps its awareness.
+    DatabendDateTime = databend_sqlalchemy.databend_dialect.DatabendDateTime
+    aware_utc = datetime.datetime(
+        2012, 10, 15, 12, 57, 18, 396, tzinfo=datetime.timezone.utc
+    )
+    naive = datetime.datetime(2012, 10, 15, 12, 57, 18, 396)
+
+    process = DatabendDateTime().result_processor(None, None)
+    # tz-aware input -> naive output for a timezone=False column
+    assert process(aware_utc) == naive
+    assert process(aware_utc).tzinfo is None
+    # a non-UTC offset is normalised to UTC before tzinfo is dropped, so the
+    # wall-clock is converted rather than merely truncated
+    aware_plus2 = aware_utc.astimezone(datetime.timezone(datetime.timedelta(hours=2)))
+    assert process(aware_plus2) == naive
+    # naive passes through unchanged; None is preserved; strings still parse
+    assert process(naive) == naive
+    assert process(None) is None
+    assert process("2012-10-15 12:57:18.000396") == naive
+
+    # timezone=True columns keep their tzinfo untouched
+    process_tz = DatabendDateTime(timezone=True).result_processor(None, None)
+    assert process_tz(aware_utc) == aware_utc
+    assert process_tz(aware_utc).tzinfo is not None
