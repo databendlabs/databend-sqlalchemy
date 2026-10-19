@@ -341,7 +341,7 @@ class CSVFormat(CopyFormat):
             if binary_format not in ["HEX", "BASE64"]:
                 raise TypeError('Binary Format should be "HEX" or "BASE64".')
             self.options["BINARY_FORMAT"] = binary_format
-        if compression and compression is not Compression.NONE:
+        if compression:
             self.options["COMPRESSION"] = compression.value
 
 
@@ -368,7 +368,7 @@ class TSVFormat(CopyFormat):
             if len(str(field_delimiter).encode().decode("unicode_escape")) != 1:
                 raise TypeError("Field Delimiter should be a single character")
             self.options["FIELD_DELIMITER"] = f"{repr(field_delimiter)}"
-        if compression and compression is not Compression.NONE:
+        if compression:
             self.options["COMPRESSION"] = compression.value
 
 
@@ -399,7 +399,7 @@ class NDJSONFormat(CopyFormat):
                     'Missing Field As should be "ERROR", "NULL", "FIELD_DEFAULT" or "TYPE_DEFAULT".'
                 )
             self.options["MISSING_FIELD_AS"] = f"{missing_field_as}"
-        if compression and compression is not Compression.NONE:
+        if compression:
             self.options["COMPRESSION"] = compression.value
 
 
@@ -420,10 +420,14 @@ class ParquetFormat(CopyFormat):
                     'Missing Field As should be "ERROR" or "FIELD_DEFAULT".'
                 )
             self.options["MISSING_FIELD_AS"] = f"{missing_field_as}"
-        if compression and compression is not Compression.NONE:
-            if compression not in [Compression.ZSTD, Compression.SNAPPY]:
+        if compression:
+            if compression not in [
+                Compression.NONE,
+                Compression.ZSTD,
+                Compression.SNAPPY,
+            ]:
                 raise TypeError(
-                    'Compression should be None, ZStd, or Snappy.'
+                    'Compression should be NONE, ZSTD, or SNAPPY.'
                 )
             self.options["COMPRESSION"] = compression.value
 
