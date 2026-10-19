@@ -277,6 +277,7 @@ class CopyFormat(ClauseElement):
 
 class CSVFormat(CopyFormat):
     format_type = "CSV"
+    inherit_cache = False
 
     def __init__(
         self,
@@ -346,6 +347,7 @@ class CSVFormat(CopyFormat):
 
 class TSVFormat(CopyFormat):
     format_type = "TSV"
+    inherit_cache = False
 
     def __init__(
         self,
@@ -372,6 +374,7 @@ class TSVFormat(CopyFormat):
 
 class NDJSONFormat(CopyFormat):
     format_type = "NDJSON"
+    inherit_cache = False
 
     def __init__(
         self,
@@ -402,6 +405,7 @@ class NDJSONFormat(CopyFormat):
 
 class ParquetFormat(CopyFormat):
     format_type = "PARQUET"
+    inherit_cache = False
 
     def __init__(
         self,
@@ -417,9 +421,13 @@ class ParquetFormat(CopyFormat):
                 )
             self.options["MISSING_FIELD_AS"] = f"{missing_field_as}"
         if compression:
-            if compression not in [Compression.ZSTD, Compression.SNAPPY]:
+            if compression not in [
+                Compression.NONE,
+                Compression.ZSTD,
+                Compression.SNAPPY,
+            ]:
                 raise TypeError(
-                    'Compression should be None, ZStd, or Snappy.'
+                    'Compression should be NONE, ZSTD, or SNAPPY.'
                 )
             self.options["COMPRESSION"] = compression.value
 
