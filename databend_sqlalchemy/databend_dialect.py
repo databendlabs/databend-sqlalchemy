@@ -71,7 +71,7 @@ else:
     from .types import DOUBLE
 
 from sqlalchemy.engine import ExecutionContext, default
-from sqlalchemy.exc import DBAPIError, NoSuchTableError
+from sqlalchemy.exc import DBAPIError, NoSuchTableError, CompileError
 
 from .dml import (
     Merge,
@@ -1316,10 +1316,14 @@ class DatabendDDLCompiler(compiler.DDLCompiler):
     def visit_create_index(
         self, create, include_schema=False, include_table_schema=True, **kw
     ):
-        return ""
+        raise CompileError(
+            "Databend does not support standard secondary indexes; consider CLUSTER BY or INVERTED INDEX."
+        )
 
     def visit_drop_index(self, drop, **kw):
-        return ""
+        raise CompileError(
+            "Databend does not support standard secondary indexes."
+        )
 
     def visit_drop_schema(self, drop, **kw):
         # Override - Databend does not support the CASCADE option
