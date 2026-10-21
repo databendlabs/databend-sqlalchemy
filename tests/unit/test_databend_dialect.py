@@ -258,3 +258,21 @@ def test_datetime_result_processor_timezone_handling():
     process_tz = DatabendDateTime(timezone=True).result_processor(None, None)
     assert process_tz(aware_utc) == aware_utc
     assert process_tz(aware_utc).tzinfo is not None
+
+
+def test_create_and_drop_index_raises_compile_error():
+    import pytest
+    from sqlalchemy import MetaData, Table, Column, Integer, Index
+    from sqlalchemy.schema import CreateIndex, DropIndex
+    from sqlalchemy.exc import CompileError
+
+    d = databend_sqlalchemy.databend_dialect.DatabendDialect()
+    m = MetaData()
+    t = Table("t", m, Column("id", Integer), Column("x", Integer))
+    ix = Index("ix_t_x", t.c.x)
+
+    with pytest.raises(CompileError, match="does not support"):
+        CreateIndex(ix).compile(dialect=d)
+
+    with pytest.raises(CompileError, match="does not support"):
+        DropIndex(ix).compile(dialect=d)
