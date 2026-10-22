@@ -71,7 +71,7 @@ else:
     from .types import DOUBLE
 
 from sqlalchemy.engine import ExecutionContext, default
-from sqlalchemy.exc import DBAPIError, NoSuchTableError
+from sqlalchemy.exc import DBAPIError, NoSuchTableError, CompileError
 
 from .dml import (
     Merge,
@@ -1273,7 +1273,9 @@ class DatabendTypeCompiler(compiler.GenericTypeCompiler):
         return "JSON"  # or VARIANT
 
     def visit_TIME(self, type_, **kw):
-        return "DATETIME"
+        raise CompileError(
+            "Databend does not support the TIME data type; consider using TIMESTAMP or VARCHAR."
+        )
 
     def visit_INTERVAL(self, type, **kw):
         return "INTERVAL"

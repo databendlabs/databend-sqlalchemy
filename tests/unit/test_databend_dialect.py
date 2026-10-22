@@ -258,3 +258,17 @@ def test_datetime_result_processor_timezone_handling():
     process_tz = DatabendDateTime(timezone=True).result_processor(None, None)
     assert process_tz(aware_utc) == aware_utc
     assert process_tz(aware_utc).tzinfo is not None
+
+
+def test_visit_time_raises_compile_error():
+    import pytest
+    from sqlalchemy import Column, MetaData, Table, Time
+    from sqlalchemy.exc import CompileError
+    from sqlalchemy.schema import CreateTable
+
+    dialect = databend_sqlalchemy.databend_dialect.DatabendDialect()
+    metadata = MetaData()
+    table = Table("probe", metadata, Column("clock", Time()))
+
+    with pytest.raises(CompileError, match="does not support the TIME data type"):
+        CreateTable(table).compile(dialect=dialect)
