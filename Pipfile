@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-databend-sqlalchemy = {file = ".", editable = true}
+databend-sqlalchemy = {file = ".", editable = true, extras = ["asyncio"]}
 
 [dev-packages]
 black = "*"

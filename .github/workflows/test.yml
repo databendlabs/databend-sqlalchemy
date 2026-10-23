@@ -15,10 +15,8 @@ jobs:
         env:
           QUERY_DEFAULT_USER: databend
           QUERY_DEFAULT_PASSWORD: databend
-          MINIO_ENABLED: true
         ports:
           - 8000:8000
-          - 9000:9000
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,3 +42,7 @@ jobs:
           TEST_DATABEND_DSN: "databend://databend:databend@localhost:8000/default?sslmode=disable"
         run: |
           pipenv run pytest -s .
+
+      - name: SQLAlchemy Test Suite (asyncio)
+        run: |
+          pipenv run pytest -s . --db async

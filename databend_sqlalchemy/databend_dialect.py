@@ -64,13 +64,10 @@ import sqlalchemy
 from sqlalchemy import types as sqltypes
 from sqlalchemy.sql.base import Executable
 
-# Check SQLAlchemy version
-if sqlalchemy.__version__.startswith('2.'):
-    from sqlalchemy.types import DOUBLE
-else:
-    from .types import DOUBLE
-
+from sqlalchemy.types import DOUBLE
 from sqlalchemy.engine import ExecutionContext, default
+from sqlalchemy.engine.interfaces import Dialect
+from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import DBAPIError, NoSuchTableError
 
 from .dml import (
@@ -1461,6 +1458,14 @@ class DatabendDialect(default.DefaultDialect):
         except Exception:
             import connector
         return connector
+
+    @classmethod
+    def get_async_dialect_cls(cls, url: URL) -> type[Dialect]:
+        """Lets ``create_async_engine`` take a plain ``databend://`` URL. The import is
+        deferred because the async dialect module builds on this one."""
+        from databend_sqlalchemy.async_dialect import AsyncDatabendDialect
+
+        return AsyncDatabendDialect
 
     def _get_server_version_info(self, connection):
         val = connection.scalar(text("SELECT VERSION()"))

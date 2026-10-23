@@ -6,7 +6,9 @@
 import decimal
 import re
 import json
+from collections.abc import Mapping, Sequence
 from datetime import datetime, date, time, timedelta
+from typing import Any
 from databend_sqlalchemy.errors import Error, NotSupportedError
 
 from databend_driver import BlockingDatabendClient
@@ -16,6 +18,15 @@ apilevel = "2.0"
 threadsafety = 2  # Threads may share the module and connections.
 paramstyle = "pyformat"  # Python extended format codes, e.g. ...WHERE name=%(name)s
 Binary = bytes  # to satisfy dialect.dbapi.Binary
+
+Parameters = Mapping[str, Any] | Sequence[Any]
+
+RE_INSERT_VALUES = re.compile(
+    r"\s*((?:INSERT|REPLACE)\s.+\sVALUES?\s*)"
+    + r"(\(\s*(?:%s|%\(.+\)s)\s*(?:,\s*(?:%s|%\(.+\)s)\s*)*\))"
+    + r"(\s*(?:ON DUPLICATE.*)?);?\s*\Z",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 class ParamEscaper:
@@ -71,6 +82,38 @@ class ParamEscaper:
 _escaper = ParamEscaper()
 
 
+class OperationRenderer:
+    """Client-side parameter rendering shared by the blocking and asyncio cursors.
+
+    Databend takes no bind parameters, so each operation is rendered to literal SQL
+    before it reaches the driver.
+    """
+
+    def mogrify(self, query: str, parameters: Parameters | None) -> str:
+        if parameters:
+            query = query % _escaper.escape_args(parameters)
+        return query
+
+    def render_operation(self, operation: str, parameters: Parameters | None) -> str:
+        return self.mogrify(operation, parameters).replace("%%", "%")
+
+    def render_multi_row_insert(
+        self, operation: str, seq_of_parameters: Sequence[Parameters]
+    ) -> str | None:
+        """Collapse an ``executemany`` of ``INSERT ... VALUES`` into a single multi-row
+        ``INSERT``, or return ``None`` when the operation is not of that shape."""
+        m = RE_INSERT_VALUES.match(operation)
+        if not m:
+            return None
+        q_prefix = m.group(1)
+        q_values = m.group(2).rstrip()
+        values_list = [
+            q_values % _escaper.escape_args(parameters)
+            for parameters in seq_of_parameters
+        ]
+        return "{} {};".format(q_prefix, ",".join(values_list))
+
+
 # Patch ORM library
 @classmethod
 def create_ad_hoc_field(cls, db_type):
@@ -124,7 +167,7 @@ class Connection:
         raise NotSupportedError("Transactions are not supported")  # pragma: no cover
 
 
-class Cursor:
+class Cursor(OperationRenderer):
     """These objects represent a database cursor, which is used to manage the context of a fetch
     operation.
 
@@ -168,12 +211,7 @@ class Cursor:
         except Exception as e:
             raise Error(str(e)) from e
 
-    def mogrify(self, query, parameters):
-        if parameters:
-            query = query % _escaper.escape_args(parameters)
-        return query
-
-    def execute(self, operation, parameters=None):
+    def execute(self, operation: str, parameters: Parameters | None = None) -> None:
         """Prepare and execute a database operation (query or command)."""
 
         # ToDo - Fix this, which is preventing the execution of blank DDL such as CREATE INDEX statements which aren't currently supported
@@ -182,13 +220,13 @@ class Cursor:
             return
 
         try:
-            query = self.mogrify(operation, parameters)
-            query = query.replace("%%", "%")
-            return self.inner.execute(query)
+            return self.inner.execute(self.render_operation(operation, parameters))
         except Exception as e:
             raise Error(str(e)) from e
 
-    def executemany(self, operation, seq_of_parameters):
+    def executemany(
+        self, operation: str, seq_of_parameters: Sequence[Parameters]
+    ) -> None:
         """Prepare a database operation (query or command) and then execute it against all parameter
         sequences or mappings found in the sequence ``seq_of_parameters``.
 
@@ -196,30 +234,15 @@ class Cursor:
 
         Return values are not defined.
         """
-        values_list = []
-        RE_INSERT_VALUES = re.compile(
-            r"\s*((?:INSERT|REPLACE)\s.+\sVALUES?\s*)"
-            + r"(\(\s*(?:%s|%\(.+\)s)\s*(?:,\s*(?:%s|%\(.+\)s)\s*)*\))"
-            + r"(\s*(?:ON DUPLICATE.*)?);?\s*\Z",
-            re.IGNORECASE | re.DOTALL,
-        )
-
-        m = RE_INSERT_VALUES.match(operation)
-        if m:
-            try:
-                q_prefix = m.group(1)
-                q_values = m.group(2).rstrip()
-
-                for parameters in seq_of_parameters:
-                    values_list.append(q_values % _escaper.escape_args(parameters))
-                query = "{} {};".format(q_prefix, ",".join(values_list))
+        try:
+            query = self.render_multi_row_insert(operation, seq_of_parameters)
+            if query is not None:
                 return self.inner.execute(query)
-            except Exception as e:
-                # We have to raise dbAPI error
-                raise Error(str(e)) from e
-        else:
-            for parameters in seq_of_parameters:
-                self.execute(operation, parameters)
+        except Exception as e:
+            # We have to raise dbAPI error
+            raise Error(str(e)) from e
+        for parameters in seq_of_parameters:
+            self.execute(operation, parameters)
 
     def fetchone(self):
         """Fetch the next row of a query result set, returning a single sequence, or ``None`` when

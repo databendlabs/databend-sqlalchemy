@@ -1,6 +1,73 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "databend_sqlalchemy"
+authors = [
+    {name = "Databend Cloud", email = "hanshanjie@databend.com"},
+]
+maintainers = [
+    {name = "Databend Cloud", email = "hanshanjie@databend.com"},
+]
+description = "Sqlalchemy adapter for Databend"
+requires-python = ">=3.10"
+keywords = ["databend", "sqlalchemy", "dialect"]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Database :: Front-Ends",
+]
+dependencies = [
+    "databend-driver>=0.26.2",
+    "sqlalchemy>=2.0.28",
+]
+dynamic = ["readme", "version"]
+
+[project.optional-dependencies]
+asyncio = [
+    "sqlalchemy[asyncio]",
+]
+dev = [
+    "devtools==0.7.0",
+    "mock==4.0.3",
+    "pre-commit==2.15.0",
+    "pytest==8.1.1",
+    "pytest-cov==3.0.0",
+    "pytest-xdist==3.5.0",
+    "sqlalchemy-stubs==0.4",
+]
+superset = [
+    "apache-superset>=1.4.1",
+]
+
+[project.urls]
+Homepage = "https://databend.com"
+Documentation = "https://docs.databend.com"
+Repository = "https://github.com/databendlabs/databend-sqlalchemy"
+Issues = "https://github.com/databendlabs/databend-sqlalchemy/issues"
+
+[project.entry-points."sqlalchemy.dialects"]
+databend = "databend_sqlalchemy.databend_dialect:DatabendDialect"
+"databend.databend" = "databend_sqlalchemy.databend_dialect:DatabendDialect"
+"databend.async" = "databend_sqlalchemy.async_dialect:AsyncDatabendDialect"
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.rst"], content-type = "text/x-rst"}
+version = {attr = "databend_sqlalchemy.VERSION"}
+
+[tool.setuptools.packages.find]
+include = ["databend_sqlalchemy*"]
 
 # configure isort to be compatible with black
 # source: https://black.readthedocs.io/en/stable/compatible_configs.html#configuration
@@ -19,3 +86,7 @@ exclude = '''
   | dist
 )/
 '''
+
+[tool.pytest.ini_options]
+addopts = "--tb native -n4 --dist loadgroup -v -r fxX --maxfail=25 -p no:warnings"
+python_files = "tests/*test_*.py"
