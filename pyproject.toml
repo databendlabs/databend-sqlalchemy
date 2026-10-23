@@ -30,13 +30,13 @@ classifiers = [
 ]
 dependencies = [
     "databend-driver>=0.26.2",
-    "sqlalchemy>=2.0.28",
+    "sqlalchemy>=1.4",
 ]
 dynamic = ["readme", "version"]
 
 [project.optional-dependencies]
 asyncio = [
-    "sqlalchemy[asyncio]",
+    "sqlalchemy[asyncio]>=2.0.28",
 ]
 dev = [
     "devtools==0.7.0",

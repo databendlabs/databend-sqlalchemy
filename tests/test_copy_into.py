@@ -27,6 +27,10 @@ from databend_sqlalchemy import (
     FileColumnClause,
     StageClause,
 )
+import sqlalchemy
+from packaging import version
+
+ROW_COUNTS_REPORTED = version.parse(sqlalchemy.__version__) >= version.parse('2.0.28')
 
 
 class CompileDatabendCopyIntoTableTest(fixtures.TestBase, AssertsCompiledSQL):
@@ -233,7 +237,8 @@ class CopyIntoResultTest(fixtures.TablesTest):
         r = connection.execute(
             copy_into
         )
-        eq_(r.rowcount, 1000)
+        if ROW_COUNTS_REPORTED:
+            eq_(r.rowcount, 1000)
         copy_into_results = r.context.copy_into_location_results()
         eq_(copy_into_results['rows_unloaded'], 1000)
         # eq_(copy_into_results['input_bytes'], 16250) # input bytes will differ, the table is random
@@ -252,7 +257,8 @@ class CopyIntoResultTest(fixtures.TablesTest):
         r = connection.execute(
             copy_into_table
         )
-        eq_(r.rowcount, 1000)
+        if ROW_COUNTS_REPORTED:
+            eq_(r.rowcount, 1000)
         copy_into_table_results = r.context.copy_into_table_results()
         assert len(copy_into_table_results) == 1
         result = copy_into_table_results[0]

@@ -36,8 +36,8 @@ The DSN format is similar to that of regular Postgres::
 Asyncio Support
 ---------------
 
-The ``databend+async`` dialect runs on the asyncio flavour of the databend driver. Install it
-with the ``asyncio`` extra, which brings in greenlet::
+With SQLAlchemy 2.0.28 or later, the ``databend+async`` dialect runs on the asyncio flavour of
+the databend driver. Install it with the ``asyncio`` extra, which brings in greenlet::
 
     pip install "databend-sqlalchemy[asyncio]"
 
@@ -265,6 +265,8 @@ The table options can be used as below::
 Compatibility
 ---------------
 
-- databend-sqlalchemy needs Python 3.10 or later and SQLAlchemy 2.0.28 or later.
+- databend-sqlalchemy needs Python 3.10 or later and SQLAlchemy 1.4 or later. The asyncio dialect needs
+  SQLAlchemy 2.0.28 or later, as do result row counts for INSERT, UPDATE, DELETE and COPY INTO, which
+  earlier releases report as -1.
 - If databend version >= v0.9.0 or later, you need to use databend-sqlalchemy version >= v0.1.0.
 - The databend-sqlalchemy use [databend-py](https://github.com/databendlabs/databend-py) as internal driver when version < v0.4.0, but when version >= v0.4.0 it use [databend driver python binding](https://github.com/databendlabs/bendsql/blob/main/bindings/python/README.md) as internal driver. The only difference between the two is that the connection parameters provided in the DSN are different. When using the corresponding version, you should refer to the connection parameters provided by the corresponding Driver.

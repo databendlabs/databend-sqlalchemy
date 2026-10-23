@@ -64,7 +64,12 @@ import sqlalchemy
 from sqlalchemy import types as sqltypes
 from sqlalchemy.sql.base import Executable
 
-from sqlalchemy.types import DOUBLE
+# Check SQLAlchemy version
+if sqlalchemy.__version__.startswith('2.'):
+    from sqlalchemy.types import DOUBLE
+else:
+    from .types import DOUBLE
+
 from sqlalchemy.engine import ExecutionContext, default
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.engine.url import URL

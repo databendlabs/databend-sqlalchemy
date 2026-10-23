@@ -1,6 +1,8 @@
+from packaging import version
 from sqlalchemy.dialects import registry
 from sqlalchemy.testing.plugin import pytestplugin
 import pytest
+import sqlalchemy
 
 registry.register("databend.databend", "databend_sqlalchemy.databend_dialect", "DatabendDialect")
 registry.register("databend", "databend_sqlalchemy.databend_dialect", "DatabendDialect")
@@ -19,8 +21,23 @@ def pytest_collection_modifyitems(session, config, items):
     pytestplugin.pytest_collection_modifyitems(session, config, items)
 
 
+def modules_beyond_installed_sqlalchemy():
+    """The compliance suite relies on test requirements SQLAlchemy added in 2.0.42 and the
+    asyncio dialect needs 2.0.28, so neither module is collected on older releases, which
+    still run the remaining tests, SQLAlchemy 1.4 included."""
+    installed = version.parse(sqlalchemy.__version__)
+    minimums = {"test_sqlalchemy.py": "2.0.42", "test_async.py": "2.0.28"}
+    return [
+        module
+        for module, minimum in minimums.items()
+        if installed < version.parse(minimum)
+    ]
+
+
+collect_ignore = modules_beyond_installed_sqlalchemy()
+
 from sqlalchemy import event, text
-from sqlalchemy import Engine
+from sqlalchemy.engine import Engine
 
 @event.listens_for(Engine, "connect")
 def receive_engine_connect(conn, r):

@@ -46,3 +46,8 @@ jobs:
       - name: SQLAlchemy Test Suite (asyncio)
         run: |
           pipenv run pytest -s . --db async
+
+      - name: Tests on SQLAlchemy 1.4
+        run: |
+          pipenv run pip install "sqlalchemy<2"
+          pipenv run pytest -s .

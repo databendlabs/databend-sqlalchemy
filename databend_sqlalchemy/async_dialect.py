@@ -4,7 +4,8 @@ Databend Asyncio Support
 ------------------------
 
 The ``databend+async`` dialect runs on the asyncio flavour of ``databend-driver``
-through :mod:`databend_sqlalchemy.async_connector`::
+through :mod:`databend_sqlalchemy.async_connector`, and needs SQLAlchemy 2.0.28 or
+later, the first release to report the row counts Databend returns for inserts::
 
     from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -16,17 +17,14 @@ Results are buffered in full when a statement executes, unless streamed with
 ``AsyncConnection.stream()`` or the ``stream_results`` execution option, which fetch
 rows from Databend as they are consumed.
 """
+import re
 from collections import deque
 from collections.abc import Sequence
 from types import ModuleType
 from typing import Any
 
+import sqlalchemy
 from sqlalchemy import pool
-from sqlalchemy.connectors.asyncio import (
-    AsyncAdapt_dbapi_connection,
-    AsyncAdapt_dbapi_cursor,
-    AsyncAdapt_dbapi_ss_cursor,
-)
 from sqlalchemy.engine.url import URL
 from sqlalchemy.util.concurrency import await_only
 
@@ -36,6 +34,31 @@ from databend_sqlalchemy.databend_dialect import (
     DatabendDialect,
     DatabendExecutionContext,
 )
+
+ASYNCIO_REQUIREMENT = (
+    "databend+async needs SQLAlchemy 2.0.28 or later: "
+    'pip install "databend-sqlalchemy[asyncio]"'
+)
+
+try:
+    from sqlalchemy.connectors.asyncio import (
+        AsyncAdapt_dbapi_connection,
+        AsyncAdapt_dbapi_cursor,
+        AsyncAdapt_dbapi_ss_cursor,
+    )
+except ImportError as missing_adapter:
+    raise ImportError(ASYNCIO_REQUIREMENT) from missing_adapter
+
+
+def installed_sqlalchemy_release() -> tuple[int, ...]:
+    """Major, minor and patch number of the installed SQLAlchemy, ignoring any
+    pre-release tag."""
+    release_numbers = re.findall(r"\d+", sqlalchemy.__version__)[:3]
+    return tuple(int(number) for number in release_numbers)
+
+
+if installed_sqlalchemy_release() < (2, 0, 28):
+    raise ImportError(ASYNCIO_REQUIREMENT)
 
 
 class AsyncAdaptedDatabendCursor(AsyncAdapt_dbapi_cursor):
