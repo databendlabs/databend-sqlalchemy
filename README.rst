@@ -33,6 +33,49 @@ The DSN format is similar to that of regular Postgres::
             print(row)
 
 
+Asyncio Support
+---------------
+
+With SQLAlchemy 2.0.28 or later, the ``databend+async`` dialect runs on the asyncio flavour of
+the databend driver. Install it with the ``asyncio`` extra, which brings in greenlet::
+
+    pip install "databend-sqlalchemy[asyncio]"
+
+Create the engine with ``create_async_engine``, which also picks this dialect for a plain
+``databend://`` URL::
+
+        from sqlalchemy import text
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        engine = create_async_engine(
+            f"databend+async://{username}:{password}@{host_port_name}/{database_name}?sslmode=disable"
+        )
+        async with engine.connect() as connection:
+            result = await connection.execute(text("SELECT 1"))
+            assert result.scalar() == 1
+
+            # rows are fetched from Databend as they are consumed, rather than buffered
+            result = await connection.stream(text("SELECT number FROM numbers(1000000)"))
+            async for partition in result.partitions(10000):
+                ...
+
+        async with AsyncSession(engine) as session:
+            ...
+
+Each pooled connection holds one Databend session, so session settings and temporary tables
+persist across its statements.
+
+The async connector can also be used directly::
+
+        from databend_sqlalchemy import async_connector
+
+        connection = await async_connector.connect('databend://root:@localhost:8000?sslmode=disable')
+        cursor = connection.cursor()
+        await cursor.execute('SELECT * FROM test')
+        async for row in cursor:
+            print(row)
+
+
 Merge Command Support
 ---------------------
 
@@ -63,7 +106,7 @@ The Merge command can be used as below::
 
 
 Copy Into Command Support
----------------------
+-------------------------
 
 Databend SQLAlchemy supports copy into operations through it's CopyIntoTable and CopyIntoLocation methods
 See [CopyIntoLocation](https://docs.databend.com/sql/sql-commands/dml/dml-copy-into-location) or [CopyIntoTable](https://docs.databend.com/sql/sql-commands/dml/dml-copy-into-table) for full documentation.
@@ -222,5 +265,8 @@ The table options can be used as below::
 Compatibility
 ---------------
 
+- databend-sqlalchemy needs Python 3.10 or later and SQLAlchemy 1.4 or later. The asyncio dialect needs
+  SQLAlchemy 2.0.28 or later, as do result row counts for INSERT, UPDATE, DELETE and COPY INTO, which
+  earlier releases report as -1.
 - If databend version >= v0.9.0 or later, you need to use databend-sqlalchemy version >= v0.1.0.
 - The databend-sqlalchemy use [databend-py](https://github.com/databendlabs/databend-py) as internal driver when version < v0.4.0, but when version >= v0.4.0 it use [databend driver python binding](https://github.com/databendlabs/bendsql/blob/main/bindings/python/README.md) as internal driver. The only difference between the two is that the connection parameters provided in the DSN are different. When using the corresponding version, you should refer to the connection parameters provided by the corresponding Driver.
