@@ -63,16 +63,23 @@ class TestDatabendDialect:
         dialect.do_rollback(mock_conn)
         mock_conn.rollback.assert_called_once()
 
-    def test_do_rollback_raises_not_supported_error(self, dialect: DatabendDialect):
+    def test_do_rollback_safely_handles_not_supported_error(
+        self, dialect: DatabendDialect
+    ):
         mock_conn = mock.Mock()
         mock_conn.rollback.side_effect = NotSupportedError(
             "Transactions are not supported"
         )
-        with pytest.raises(
-            NotSupportedError,
-            match="Transactions are not supported",
-        ):
-            dialect.do_rollback(mock_conn)
+        # Must not raise to ensure pool checkout/checkin lifecycle succeeds
+        dialect.do_rollback(mock_conn)
+        mock_conn.rollback.assert_called_once()
+
+    def test_do_rollback_safely_handles_attribute_error(
+        self, dialect: DatabendDialect
+    ):
+        mock_conn = object()
+        # Must not raise if connection object lacks rollback method
+        dialect.do_rollback(mock_conn)
 
     def test_table_names(
             self, dialect: DatabendDialect, connection: mock.Mock(spec=MockDBApi)

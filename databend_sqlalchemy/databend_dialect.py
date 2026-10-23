@@ -27,6 +27,7 @@ import decimal
 import re
 import operator
 import datetime
+import logging
 from types import NoneType
 
 import sqlalchemy.engine.reflection
@@ -43,6 +44,9 @@ from sqlalchemy.sql import (
     Select,
     Subquery,
 )
+from databend_sqlalchemy.errors import NotSupportedError
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.dialects.postgresql.base import PGCompiler, PGIdentifierPreparer
 from sqlalchemy import Table, MetaData, Column
 from sqlalchemy.types import (
@@ -1817,7 +1821,18 @@ class DatabendDialect(default.DefaultDialect):
         )
 
     def do_rollback(self, dbapi_connection):
-        dbapi_connection.rollback()
+        dbapi = getattr(self, "dbapi", None)
+        not_supported = (
+            getattr(dbapi, "NotSupportedError", NotSupportedError),
+            NotSupportedError,
+            AttributeError,
+        )
+        try:
+            dbapi_connection.rollback()
+        except not_supported as e:
+            logger.debug(
+                "Database rollback not supported by underlying connection: %s", e
+            )
 
     def _check_unicode_returns(self, connection, additional_tests=None):
         # We decode everything as UTF-8
