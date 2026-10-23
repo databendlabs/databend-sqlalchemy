@@ -3,12 +3,14 @@ import os
 from unittest import mock
 
 import sqlalchemy
+import pytest
 from conftest import MockCursor, MockDBApi
 from pytest import mark
 from sqlalchemy.engine import url
 from sqlalchemy.sql import text
 
 import databend_sqlalchemy  # SQLAlchemy package
+from databend_sqlalchemy.errors import NotSupportedError
 from databend_sqlalchemy.databend_dialect import (
     DatabendCompiler,
     DatabendDialect,
@@ -55,6 +57,22 @@ class TestDatabendDialect:
         cursor.execute.assert_called_once_with("SELECT *", None)
         cursor.execute.reset_mock()
         dialect.do_execute(cursor, "SELECT *", (1, 22), None)
+
+    def test_do_rollback_propagates_rollback(self, dialect: DatabendDialect):
+        mock_conn = mock.Mock()
+        dialect.do_rollback(mock_conn)
+        mock_conn.rollback.assert_called_once()
+
+    def test_do_rollback_raises_not_supported_error(self, dialect: DatabendDialect):
+        mock_conn = mock.Mock()
+        mock_conn.rollback.side_effect = NotSupportedError(
+            "Transactions are not supported"
+        )
+        with pytest.raises(
+            NotSupportedError,
+            match="Transactions are not supported",
+        ):
+            dialect.do_rollback(mock_conn)
 
     def test_table_names(
             self, dialect: DatabendDialect, connection: mock.Mock(spec=MockDBApi)

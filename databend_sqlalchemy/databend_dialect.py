@@ -1817,8 +1817,7 @@ class DatabendDialect(default.DefaultDialect):
         )
 
     def do_rollback(self, dbapi_connection):
-        # No transactions
-        pass
+        dbapi_connection.rollback()
 
     def _check_unicode_returns(self, connection, additional_tests=None):
         # We decode everything as UTF-8
