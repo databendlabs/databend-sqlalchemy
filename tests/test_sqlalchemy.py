@@ -3,7 +3,6 @@
 from sqlalchemy.testing.suite import *
 
 from sqlalchemy.testing.suite import ComponentReflectionTestExtra as _ComponentReflectionTestExtra
-from sqlalchemy.testing.suite import DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest
 from sqlalchemy.testing.suite import BooleanTest as _BooleanTest
 from sqlalchemy.testing.suite import BinaryTest as _BinaryTest
 from sqlalchemy.testing.suite import CompoundSelectTest as _CompoundSelectTest
@@ -14,6 +13,8 @@ from sqlalchemy.testing.suite import LongNameBlowoutTest as _LongNameBlowoutTest
 from sqlalchemy.testing.suite import QuotedNameArgumentTest as _QuotedNameArgumentTest
 from sqlalchemy.testing.suite import JoinTest as _JoinTest
 from sqlalchemy.testing.suite import HasSequenceTest as _HasSequenceTest
+from sqlalchemy.testing.suite import HasSequenceTestEmpty as _HasSequenceTestEmpty
+from sqlalchemy.testing.suite import SequenceTest as _SequenceTest
 
 from sqlalchemy.testing.suite import ServerSideCursorsTest as _ServerSideCursorsTest
 
@@ -21,27 +22,19 @@ from sqlalchemy.testing.suite import CTETest as _CTETest
 from sqlalchemy.testing.suite import JSONTest as _JSONTest
 from sqlalchemy.testing.suite import IntegerTest as _IntegerTest
 
+import pytest
 from sqlalchemy import types as sql_types
 from sqlalchemy.testing import config, skip_test
-from sqlalchemy import testing, Table, Column, Integer
+from sqlalchemy import testing, Table, Column, Integer, select, text
 from sqlalchemy.testing import eq_, fixtures, assertions
 
 from databend_sqlalchemy.types import TINYINT, BITMAP, DOUBLE, GEOMETRY, GEOGRAPHY
 
 from packaging import version
 import sqlalchemy
-if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
-    if version.parse(sqlalchemy.__version__) < version.parse('2.0.42'):
-        from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
-    from sqlalchemy.testing.suite import EnumTest as _EnumTest
-else:
-    from sqlalchemy.testing.suite import ComponentReflectionTest as _ComponentReflectionTest
-
-    class ComponentReflectionTest(_ComponentReflectionTest):
-
-        @testing.skip("databend")
-        def test_get_indexes(self):
-            pass
+if version.parse(sqlalchemy.__version__) < version.parse('2.0.42'):
+    from sqlalchemy.testing.suite import BizarroCharacterFKResolutionTest as _BizarroCharacterFKResolutionTest
+from sqlalchemy.testing.suite import EnumTest as _EnumTest
 
 class ComponentReflectionTestExtra(_ComponentReflectionTestExtra):
     @testing.skip("databend") #ToDo  No length in Databend
@@ -127,18 +120,21 @@ class CompoundSelectTest(_CompoundSelectTest):
         pass
 
 
-class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
-    @testing.skip("databend")
-    def test_limit_offset_aliased_selectable_in_unions(self):
-        pass
+if version.parse(sqlalchemy.__version__) < version.parse('2.1.0'):
+    from sqlalchemy.testing.suite import DeprecatedCompoundSelectTest as _DeprecatedCompoundSelectTest
 
-    @testing.skip("databend")
-    def test_limit_offset_selectable_in_unions(self):
-        pass
+    class DeprecatedCompoundSelectTest(_DeprecatedCompoundSelectTest):
+        @testing.skip("databend")
+        def test_limit_offset_aliased_selectable_in_unions(self):
+            pass
 
-    @testing.skip("databend")
-    def test_limit_offset_in_unions_from_alias(self):
-        pass
+        @testing.skip("databend")
+        def test_limit_offset_selectable_in_unions(self):
+            pass
+
+        @testing.skip("databend")
+        def test_limit_offset_in_unions_from_alias(self):
+            pass
 
 
 class HasIndexTest(_HasIndexTest):
@@ -228,7 +224,7 @@ class QuotedNameArgumentTest(_QuotedNameArgumentTest):
 class JoinTest(_JoinTest):
     __requires__ = ("foreign_keys",)
 
-if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0') and version.parse(sqlalchemy.__version__) < version.parse('2.0.42'):
+if version.parse(sqlalchemy.__version__) < version.parse('2.0.42'):
     class BizarroCharacterFKResolutionTest(_BizarroCharacterFKResolutionTest):
         __requires__ = ("foreign_keys",)
 
@@ -253,29 +249,36 @@ class BinaryTest(_BinaryTest):
 class ServerSideCursorsTest(_ServerSideCursorsTest):
 
     def _is_server_side(self, cursor):
-        # ToDo - requires implementation of `stream_results` option, so True always for now
-        if self.engine.dialect.driver == "databend":
-            return True
-        return super()
+        """The blocking driver cursor always streams, so only the asyncio dialect, which buffers
+        unless ``stream_results`` is requested, has cursors that are not server side."""
+        if self.engine.dialect.is_async:
+            return cursor.server_side
+        return True
 
-    # ToDo - The commented out testing combinations here should be reviewed when `stream_results` is implemented
     @testing.combinations(
         ("global_string", True, "select 1", True),
         ("global_text", True, text("select 1"), True),
         ("global_expr", True, select(1), True),
-        # ("global_off_explicit", False, text("select 1"), False),
+        (
+            "global_off_explicit",
+            False,
+            text("select 1"),
+            False,
+            testing.requires.buffered_cursors,
+        ),
         (
             "stmt_option",
             False,
             select(1).execution_options(stream_results=True),
             True,
         ),
-        # (
-        #     "stmt_option_disabled",
-        #     True,
-        #     select(1).execution_options(stream_results=False),
-        #     False,
-        # ),
+        (
+            "stmt_option_disabled",
+            True,
+            select(1).execution_options(stream_results=False),
+            False,
+            testing.requires.buffered_cursors,
+        ),
         ("for_update_expr", True, select(1).with_for_update(), True),
         # TODO: need a real requirement for this, or dont use this test
         # (
@@ -285,7 +288,13 @@ class ServerSideCursorsTest(_ServerSideCursorsTest):
         #     True,
         #     testing.skip_if(["sqlite", "mssql"]),
         # ),
-        # ("text_no_ss", False, text("select 42"), False),
+        (
+            "text_no_ss",
+            False,
+            text("select 42"),
+            False,
+            testing.requires.buffered_cursors,
+        ),
         (
             "text_ss_option",
             False,
@@ -298,15 +307,24 @@ class ServerSideCursorsTest(_ServerSideCursorsTest):
     def test_ss_cursor_status(
         self, engine_ss_arg, statement, cursor_ss_status
     ):
-        super()
+        """Repeats the base test, which can't be reached through ``super()`` as its own
+        combinations wrap it to take an extra exclusions argument."""
+        engine = self._fixture(engine_ss_arg)
+        with engine.begin() as conn:
+            if isinstance(statement, str):
+                result = conn.exec_driver_sql(statement)
+            else:
+                result = conn.execute(statement)
+            eq_(self._is_server_side(result.cursor), cursor_ss_status)
+            result.close()
 
-    @testing.skip("databend")  # ToDo - requires implementation of `stream_results` option
+    @testing.requires.buffered_cursors
     def test_stmt_enabled_conn_option_disabled(self):
-        pass
+        super().test_stmt_enabled_conn_option_disabled()
 
-    @testing.skip("databend")  # ToDo - requires implementation of `stream_results` option
+    @testing.requires.buffered_cursors
     def test_aliases_and_ss(self):
-        pass
+        super().test_aliases_and_ss()
 
     @testing.skip("databend")  # Skipped because requires auto increment primary key
     def test_roundtrip_fetchall(self):
@@ -316,13 +334,12 @@ class ServerSideCursorsTest(_ServerSideCursorsTest):
     def test_roundtrip_fetchmany(self):
         pass
 
-if version.parse(sqlalchemy.__version__) >= version.parse('2.0.0'):
-    class EnumTest(_EnumTest):
-        __backend__ = True
+class EnumTest(_EnumTest):
+    __backend__ = True
 
-        @testing.skip("databend")  # Skipped because no supporting enums yet
-        def test_round_trip_executemany(self, connection):
-            pass
+    @testing.skip("databend")  # Skipped because no supporting enums yet
+    def test_round_trip_executemany(self, connection):
+        pass
 
 
 class CTETest(_CTETest):
@@ -688,6 +705,22 @@ class GeographyTest(fixtures.TablesTest):
         eq_(result, ('{"type": "GeometryCollection", "geometries": [{"type": "Point", "coordinates": [10,20]},{"type": "LineString", "coordinates": [[10,20],[30,40]]},{"type": "Polygon", "coordinates": [[[10,20],[30,40],[50,60],[10,20]]]}]}'))
 
 
+databend_sequences = pytest.mark.xdist_group("databend_sequences")
+
+
+@databend_sequences
+class SequenceTest(_SequenceTest):
+    """Databend sequences belong to the tenant rather than to a database, so each xdist
+    worker's database would share them. The sequence tests join one xdist group, which
+    ``--dist loadgroup`` runs on a single worker, rather than racing on the same names."""
+
+
+@databend_sequences
+class HasSequenceTestEmpty(_HasSequenceTestEmpty):
+    """Expects no sequences to exist, so it runs alongside the other sequence tests."""
+
+
+@databend_sequences
 class HasSequenceTest(_HasSequenceTest):
 
     # ToDo - overridden other_seq definition due to lack of sequence ddl support for nominvalue nomaxvalue

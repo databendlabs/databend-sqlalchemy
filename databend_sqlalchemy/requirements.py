@@ -56,6 +56,19 @@ class Requirements(SuiteRequirements):
         return exclusions.closed()
 
     @property
+    def async_dialect(self):
+        """dialect makes use of await_() within and needs to be called inside of a
+        greenlet"""
+        return exclusions.only_if(lambda config: config.db.dialect.is_async)
+
+    @property
+    def buffered_cursors(self):
+        """target driver can buffer a result in full rather than stream it, which the
+        asyncio dialect does unless ``stream_results`` is requested; the blocking driver
+        cursor always streams."""
+        return exclusions.only_if(lambda config: config.db.dialect.is_async)
+
+    @property
     def self_referential_foreign_keys(self):
         """Target database must support self-referential foreign keys."""
 
